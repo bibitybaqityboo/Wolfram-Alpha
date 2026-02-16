@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MechSim — Mechanics of Materials Simulator</title>
+    <meta name="description" content="Interactive 3D Mechanics of Materials Simulator with real-time physics" />
+    <link rel="stylesheet" href="style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet" />
+</head>
+
+<body>
+    <div id="canvas-container"></div>
+
+    <!-- ═══ Top Nav ═══ -->
+    <nav id="top-nav">
+        <div class="nav-brand">⬡ MechSim</div>
+        <div class="nav-tabs">
+            <button class="tab-btn active" data-mode="beam">
+                <span class="tab-icon">📐</span>Beam
+            </button>
+            <button class="tab-btn" data-mode="mohr">
+                <span class="tab-icon">⊚</span>Mohr's Circle
+            </button>
+            <button class="tab-btn" data-mode="torsion">
+                <span class="tab-icon">🔄</span>Torsion
+            </button>
+            <button class="tab-btn" data-mode="column">
+                <span class="tab-icon">🏛</span>Buckling
+            </button>
+            <button class="tab-btn" data-mode="pressure">
+                <span class="tab-icon">🛢</span>Pressure Vessel
+            </button>
+            <button class="tab-btn" data-mode="truss">
+                <span class="tab-icon">🔺</span>Truss
+            </button>
+            <button class="tab-btn" data-mode="material">
+                <span class="tab-icon">🧪</span>Material Test
+            </button>
+        </div>
+    </nav>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- BEAM ANALYSIS PANEL                                         -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="beam-controls" class="panel">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <h2 class="panel-title">Beam Analysis</h2>
+                <p class="subtitle">Euler-Bernoulli Beam Theory</p>
+            </div>
+            <button class="help-btn" data-help="beam" title="Help & Theory">?</button>
+        </div>
+        <div class="panel-body">
+            <div class="control-group">
+                <label for="beam-material">Material</label>
+                <div class="select-wrapper">
+                    <select id="beam-material">
+                        <option value="steel">Steel (E = 200 GPa)</option>
+                        <option value="aluminum">Aluminum (E = 69 GPa)</option>
+                        <option value="wood">Wood (E = 12 GPa)</option>
+                        <option value="concrete">Concrete (E = 30 GPa)</option>
+                        <option value="titanium">Titanium (E = 116 GPa)</option>
+                        <option value="copper">Copper (E = 117 GPa)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="beam-support-type">Support Type</label>
+                <div class="select-wrapper">
+                    <select id="beam-support-type">
+                        <option value="simply-supported">Simply Supported</option>
+                        <option value="cantilever">Cantilever</option>
+                        <option value="fixed-fixed">Fixed-Fixed</option>
+                        <option value="overhanging">Overhanging</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="beam-theory">Beam Theory</label>
+                <div class="select-wrapper">
+                    <select id="beam-theory">
+                        <option value="euler">Euler-Bernoulli (thin beams)</option>
+                        <option value="timoshenko">Timoshenko (thick beams)</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Dimensions</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="beam-length">Length (L)</label>
+                    <span id="beam-length-val" class="value-badge">4.0 m</span>
+                </div>
+                <input type="range" id="beam-length" min="1" max="10" value="4" step="0.1" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="beam-width">Width (b)</label>
+                    <span id="beam-width-val" class="value-badge">100 mm</span>
+                </div>
+                <input type="range" id="beam-width" min="20" max="400" value="100" step="5" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="beam-height">Height (h)</label>
+                    <span id="beam-height-val" class="value-badge">200 mm</span>
+                </div>
+                <input type="range" id="beam-height" min="20" max="600" value="200" step="5" />
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Loading</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="beam-point-load">Point Load (P)</label>
+                    <span id="beam-point-load-val" class="value-badge">50 kN</span>
+                </div>
+                <input type="range" id="beam-point-load" min="-200" max="200" value="50" step="1" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="beam-load-pos">Load Position</label>
+                    <span id="beam-load-pos-val" class="value-badge">50%</span>
+                </div>
+                <input type="range" id="beam-load-pos" min="0" max="100" value="50" step="1" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="beam-dist-load">Distributed Load (w)</label>
+                    <span id="beam-dist-load-val" class="value-badge">0 kN/m</span>
+                </div>
+                <input type="range" id="beam-dist-load" min="-100" max="100" value="0" step="1" />
+            </div>
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="beam-self-weight" />
+                <label for="beam-self-weight">Include self-weight</label>
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Display</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="beam-deform-scale">Deformation Scale</label>
+                    <span id="beam-deform-scale-val" class="value-badge">50x</span>
+                </div>
+                <input type="range" id="beam-deform-scale" min="1" max="200" value="50" step="1" />
+            </div>
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="beam-show-moment" checked />
+                <label for="beam-show-moment">Show Bending Moment Diagram</label>
+            </div>
+            <div class="checkbox-row">
+                <input type="checkbox" id="beam-show-shear" checked />
+                <label for="beam-show-shear">Show Shear Force Diagram</label>
+            </div>
+            <div class="checkbox-row">
+                <input type="checkbox" id="beam-show-stress" checked />
+                <label for="beam-show-stress">Show Stress Heatmap</label>
+            </div>
+
+            <button id="beam-reset-btn" class="reset-btn" style="margin-top:12px">↻ Reset All</button>
+            <hr class="divider" />
+
+            <div class="readouts">
+                <div class="readout-card"><span class="readout-label">Max Deflection (δ)</span><span
+                        id="beam-deflection-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Max Bending Stress (σ)</span><span
+                        id="beam-stress-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Max Shear Stress (τ)</span><span
+                        id="beam-shear-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Max Moment (M)</span><span
+                        id="beam-moment-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Moment of Inertia (I)</span><span
+                        id="beam-inertia-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Safety Factor</span><span id="beam-safety-readout"
+                        class="readout-value">—</span></div>
+            </div>
+            <div id="beam-yield-warning" class="yield-warning hidden">⚠️ Yield stress exceeded!</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- MOHR'S CIRCLE PANEL                                         -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="mohr-controls" class="panel hidden">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <h2 class="panel-title">Mohr's Circle</h2>
+                <p class="subtitle">Stress Transformation</p>
+            </div>
+            <button class="help-btn" data-help="mohr" title="Help & Theory">?</button>
+        </div>
+        <div class="panel-body">
+            <p class="section-title">Stress State</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="mohr-sx">σx</label>
+                    <span id="mohr-sx-val" class="value-badge">80 MPa</span>
+                </div>
+                <input type="range" id="mohr-sx" min="-200" max="200" value="80" step="1" />
+            </div>
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="mohr-sy">σy</label>
+                    <span id="mohr-sy-val" class="value-badge">-40 MPa</span>
+                </div>
+                <input type="range" id="mohr-sy" min="-200" max="200" value="-40" step="1" />
+            </div>
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="mohr-txy">τxy</label>
+                    <span id="mohr-txy-val" class="value-badge">30 MPa</span>
+                </div>
+                <input type="range" id="mohr-txy" min="-200" max="200" value="30" step="1" />
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">3D Stress (optional)</p>
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="mohr-sz">σz</label>
+                    <span id="mohr-sz-val" class="value-badge">0 MPa</span>
+                </div>
+                <input type="range" id="mohr-sz" min="-200" max="200" value="0" step="1" />
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Rotation</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="mohr-angle">Element Rotation (θ)</label>
+                    <span id="mohr-angle-val" class="value-badge">0°</span>
+                </div>
+                <input type="range" id="mohr-angle" min="-90" max="90" value="0" step="1" />
+            </div>
+
+            <button id="mohr-reset-btn" class="reset-btn" style="margin-top:12px">↻ Reset All</button>
+            <hr class="divider" />
+
+            <div class="readouts">
+                <div class="readout-card"><span class="readout-label">σ₁ (Principal)</span><span id="mohr-s1-readout"
+                        class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">σ₂ (Principal)</span><span id="mohr-s2-readout"
+                        class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">σ₃ (Principal)</span><span id="mohr-s3-readout"
+                        class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">τ_max</span><span id="mohr-tmax-readout"
+                        class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">θ_p (Principal Angle)</span><span
+                        id="mohr-tp-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Von Mises (σ_vm)</span><span id="mohr-vm-readout"
+                        class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Tresca (τ_max)</span><span id="mohr-tresca-readout"
+                        class="readout-value">—</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- TORSION PANEL                                                -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="torsion-controls" class="panel hidden">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <h2 class="panel-title">Torsion</h2>
+                <p class="subtitle">Circular Shaft Analysis</p>
+            </div>
+            <button class="help-btn" data-help="torsion" title="Help & Theory">?</button>
+        </div>
+        <div class="panel-body">
+            <div class="control-group">
+                <label for="torsion-material">Material</label>
+                <div class="select-wrapper">
+                    <select id="torsion-material">
+                        <option value="steel">Steel (G = 79 GPa)</option>
+                        <option value="aluminum">Aluminum (G = 26 GPa)</option>
+                        <option value="copper">Copper (G = 44 GPa)</option>
+                        <option value="titanium">Titanium (G = 44 GPa)</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Shaft Geometry</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="torsion-length">Length (L)</label>
+                    <span id="torsion-length-val" class="value-badge">2.0 m</span>
+                </div>
+                <input type="range" id="torsion-length" min="0.5" max="5" value="2" step="0.1" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="torsion-outer-r">Outer Radius (r₀)</label>
+                    <span id="torsion-outer-r-val" class="value-badge">50 mm</span>
+                </div>
+                <input type="range" id="torsion-outer-r" min="10" max="150" value="50" step="1" />
+            </div>
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="torsion-hollow" />
+                <label for="torsion-hollow">Hollow shaft</label>
+            </div>
+
+            <div class="control-group" id="torsion-inner-group" style="display:none">
+                <div class="label-row">
+                    <label for="torsion-inner-r">Inner Radius (rᵢ)</label>
+                    <span id="torsion-inner-r-val" class="value-badge">25 mm</span>
+                </div>
+                <input type="range" id="torsion-inner-r" min="5" max="140" value="25" step="1" />
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Applied Torque</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="torsion-torque">Torque (T)</label>
+                    <span id="torsion-torque-val" class="value-badge">10 kN·m</span>
+                </div>
+                <input type="range" id="torsion-torque" min="-50" max="50" value="10" step="0.5" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="torsion-rpm">Shaft Speed (optional)</label>
+                    <span id="torsion-rpm-val" class="value-badge">0 rpm</span>
+                </div>
+                <input type="range" id="torsion-rpm" min="0" max="5000" value="0" step="50" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="torsion-deform-scale">Deformation Scale</label>
+                    <span id="torsion-deform-scale-val" class="value-badge">20x</span>
+                </div>
+                <input type="range" id="torsion-deform-scale" min="1" max="100" value="20" step="1" />
+            </div>
+
+            <button id="torsion-reset-btn" class="reset-btn" style="margin-top:12px">↻ Reset All</button>
+            <hr class="divider" />
+
+            <div class="readouts">
+                <div class="readout-card"><span class="readout-label">Max Shear Stress (τ)</span><span
+                        id="torsion-stress-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Angle of Twist (φ)</span><span
+                        id="torsion-twist-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Polar Moment (J)</span><span
+                        id="torsion-j-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Power (P)</span><span id="torsion-power-readout"
+                        class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Safety Factor</span><span
+                        id="torsion-safety-readout" class="readout-value">—</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- COLUMN BUCKLING PANEL                                       -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="column-controls" class="panel hidden">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <h2 class="panel-title">Column Buckling</h2>
+                <p class="subtitle">Euler's Formula + Johnson's Parabola</p>
+            </div>
+            <button class="help-btn" data-help="column" title="Help & Theory">?</button>
+        </div>
+        <div class="panel-body">
+            <div class="control-group">
+                <label for="column-material">Material</label>
+                <div class="select-wrapper">
+                    <select id="column-material">
+                        <option value="steel">Steel (E = 200 GPa)</option>
+                        <option value="aluminum">Aluminum (E = 69 GPa)</option>
+                        <option value="wood">Wood (E = 12 GPa)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="column-end-cond">End Conditions</label>
+                <div class="select-wrapper">
+                    <select id="column-end-cond">
+                        <option value="pinned-pinned">Pinned-Pinned (K=1.0)</option>
+                        <option value="fixed-free">Fixed-Free (K=2.0)</option>
+                        <option value="fixed-pinned">Fixed-Pinned (K=0.7)</option>
+                        <option value="fixed-fixed">Fixed-Fixed (K=0.5)</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Dimensions</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="column-length">Length (L)</label>
+                    <span id="column-length-val" class="value-badge">3.0 m</span>
+                </div>
+                <input type="range" id="column-length" min="1" max="8" value="3" step="0.1" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="column-width">Width (b)</label>
+                    <span id="column-width-val" class="value-badge">50 mm</span>
+                </div>
+                <input type="range" id="column-width" min="10" max="200" value="50" step="1" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="column-depth">Depth (d)</label>
+                    <span id="column-depth-val" class="value-badge">50 mm</span>
+                </div>
+                <input type="range" id="column-depth" min="10" max="200" value="50" step="1" />
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Applied Load</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="column-load">Axial Load (P)</label>
+                    <span id="column-load-val" class="value-badge">50 kN</span>
+                </div>
+                <input type="range" id="column-load" min="0" max="500" value="50" step="1" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="column-mode">Buckling Mode</label>
+                    <span id="column-mode-val" class="value-badge">1</span>
+                </div>
+                <input type="range" id="column-mode" min="1" max="3" value="1" step="1" />
+            </div>
+
+            <button id="column-reset-btn" class="reset-btn" style="margin-top:12px">↻ Reset All</button>
+            <hr class="divider" />
+
+            <div class="readouts">
+                <div class="readout-card"><span class="readout-label">Critical Load (P_cr)</span><span
+                        id="column-pcr-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Safety Factor</span><span
+                        id="column-safety-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Slenderness (λ)</span><span
+                        id="column-slender-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Effective Length (KL)</span><span
+                        id="column-kl-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Analysis Mode</span><span
+                        id="column-analysis-readout" class="readout-value">—</span></div>
+            </div>
+            <div id="column-buckle-warning" class="yield-warning hidden">⚠️ Column will buckle!</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- PRESSURE VESSEL PANEL                                       -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="pressure-controls" class="panel hidden">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <h2 class="panel-title">Pressure Vessels</h2>
+                <p class="subtitle">Thin & Thick Wall Analysis</p>
+            </div>
+            <button class="help-btn" data-help="pressure" title="Help & Theory">?</button>
+        </div>
+        <div class="panel-body">
+            <div class="control-group">
+                <label>Vessel Shape</label>
+                <div class="radio-group">
+                    <label class="radio-pill"><input type="radio" name="vessel-shape" value="cylinder"
+                            checked /><span>🛢️ Cylinder</span></label>
+                    <label class="radio-pill"><input type="radio" name="vessel-shape" value="sphere" /><span>🔵
+                            Sphere</span></label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="pressure-material">Material</label>
+                <div class="select-wrapper">
+                    <select id="pressure-material">
+                        <option value="steel">Steel (σ_y = 250 MPa)</option>
+                        <option value="aluminum">Aluminum (σ_y = 270 MPa)</option>
+                        <option value="titanium">Titanium (σ_y = 880 MPa)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>End Caps</label>
+                <div class="radio-group">
+                    <label class="radio-pill"><input type="radio" name="vessel-ends" value="closed"
+                            checked /><span>Closed</span></label>
+                    <label class="radio-pill"><input type="radio" name="vessel-ends"
+                            value="open" /><span>Open</span></label>
+                </div>
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Geometry</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="pressure-radius">Inner Radius (r)</label>
+                    <span id="pressure-radius-val" class="value-badge">500 mm</span>
+                </div>
+                <input type="range" id="pressure-radius" min="50" max="2000" value="500" step="10" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="pressure-thickness">Wall Thickness (t)</label>
+                    <span id="pressure-thickness-val" class="value-badge">10 mm</span>
+                </div>
+                <input type="range" id="pressure-thickness" min="1" max="200" value="10" step="1" />
+            </div>
+
+            <div class="control-group" id="pressure-vessel-length-group">
+                <div class="label-row">
+                    <label for="pressure-vessel-length">Vessel Length</label>
+                    <span id="pressure-vessel-length-val" class="value-badge">2.0 m</span>
+                </div>
+                <input type="range" id="pressure-vessel-length" min="0.5" max="5" value="2" step="0.1" />
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Pressure</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="pressure-internal">Internal Pressure (p)</label>
+                    <span id="pressure-internal-val" class="value-badge">5 MPa</span>
+                </div>
+                <input type="range" id="pressure-internal" min="0" max="50" value="5" step="0.5" />
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="pressure-external">External Pressure</label>
+                    <span id="pressure-external-val" class="value-badge">0 MPa</span>
+                </div>
+                <input type="range" id="pressure-external" min="0" max="20" value="0" step="0.5" />
+            </div>
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="pressure-cutaway" checked />
+                <label for="pressure-cutaway">Cutaway View</label>
+            </div>
+
+            <button id="pressure-reset-btn" class="reset-btn" style="margin-top:12px">↻ Reset All</button>
+            <hr class="divider" />
+
+            <div class="readouts">
+                <div class="readout-card"><span class="readout-label">Hoop Stress (σ₁)</span><span
+                        id="pressure-hoop-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Longitudinal Stress (σ₂)</span><span
+                        id="pressure-long-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Radial Stress (σ₃)</span><span
+                        id="pressure-radial-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Von Mises (σ_vm)</span><span
+                        id="pressure-vm-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">r/t Ratio</span><span id="pressure-rt-readout"
+                        class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Safety Factor</span><span
+                        id="pressure-safety-readout" class="readout-value">—</span></div>
+            </div>
+            <div id="pressure-thin-note" class="status-bar" style="margin-top:8px">Analysis: Thin-walled (r/t > 10)
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- TRUSS ANALYSIS PANEL                                        -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="truss-controls" class="panel hidden">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <h2 class="panel-title">Truss Analysis</h2>
+                <p class="subtitle">Direct Stiffness Method</p>
+            </div>
+            <button class="help-btn" data-help="truss" title="Help & Theory">?</button>
+        </div>
+        <div class="panel-body">
+            <p class="section-title">Tools</p>
+            <div class="tool-grid">
+                <button class="tool-btn active" data-tool="node" title="Place Node">
+                    <span class="tool-icon">⊕</span><span class="tool-label">Node</span>
+                </button>
+                <button class="tool-btn" data-tool="member" title="Add Member">
+                    <span class="tool-icon">┃</span><span class="tool-label">Member</span>
+                </button>
+                <button class="tool-btn" data-tool="support" title="Set Support">
+                    <span class="tool-icon">▽</span><span class="tool-label">Support</span>
+                </button>
+                <button class="tool-btn" data-tool="load" title="Add Load">
+                    <span class="tool-icon">↓</span><span class="tool-label">Load</span>
+                </button>
+                <button class="tool-btn" data-tool="delete" title="Delete">
+                    <span class="tool-icon">✕</span><span class="tool-label">Delete</span>
+                </button>
+            </div>
+
+            <div id="truss-support-options" class="sub-options hidden" style="margin-top:8px">
+                <div class="radio-group">
+                    <label class="radio-pill"><input type="radio" name="truss-support-type" value="pin"
+                            checked /><span>📌 Pin</span></label>
+                    <label class="radio-pill"><input type="radio" name="truss-support-type" value="roller" /><span>🛞
+                            Roller</span></label>
+                </div>
+            </div>
+
+            <div id="truss-load-options" class="sub-options hidden" style="margin-top:8px">
+                <div class="control-group">
+                    <div class="label-row">
+                        <label for="truss-load-fx">Fx</label>
+                        <span id="truss-load-fx-val" class="value-badge">0 kN</span>
+                    </div>
+                    <input type="range" id="truss-load-fx" min="-100" max="100" value="0" step="5" />
+                </div>
+                <div class="control-group">
+                    <div class="label-row">
+                        <label for="truss-load-fy">Fy</label>
+                        <span id="truss-load-fy-val" class="value-badge">-50 kN</span>
+                    </div>
+                    <input type="range" id="truss-load-fy" min="-200" max="200" value="-50" step="5" />
+                </div>
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Templates</p>
+            <div class="template-grid">
+                <button class="template-btn" data-template="pratt">Pratt Truss</button>
+                <button class="template-btn" data-template="warren">Warren Truss</button>
+                <button class="template-btn" data-template="howe">Howe Truss</button>
+                <button class="template-btn" data-template="ktruss">K Truss</button>
+            </div>
+
+            <hr class="divider" />
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="truss-deform-scale">Deformation Scale</label>
+                    <span id="truss-deform-scale-val" class="value-badge">50x</span>
+                </div>
+                <input type="range" id="truss-deform-scale" min="1" max="200" value="50" step="1" />
+            </div>
+
+            <div class="action-row" style="margin-top:8px">
+                <button id="truss-analyze-btn" class="action-btn primary" style="flex:1">⚡ Analyze</button>
+                <button id="truss-clear-btn" class="action-btn secondary" style="flex:1">✕ Clear</button>
+            </div>
+
+            <div id="truss-status" class="status-bar" style="margin-top:8px">Ready — place nodes to begin</div>
+
+            <hr class="divider" />
+            <div class="readouts">
+                <div class="readout-card"><span class="readout-label">Nodes</span><span id="truss-nodes-readout"
+                        class="readout-value">0</span></div>
+                <div class="readout-card"><span class="readout-label">Members</span><span id="truss-members-readout"
+                        class="readout-value">0</span></div>
+                <div class="readout-card"><span class="readout-label">Max Force</span><span id="truss-maxforce-readout"
+                        class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Max Displacement</span><span
+                        id="truss-maxdisp-readout" class="readout-value">—</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- MATERIAL TESTING PANEL                                      -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="material-controls" class="panel hidden">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <h2 class="panel-title">Material Testing</h2>
+                <p class="subtitle">Virtual Tensile Test</p>
+            </div>
+            <button class="help-btn" data-help="material" title="Help & Theory">?</button>
+        </div>
+        <div class="panel-body">
+            <div class="control-group">
+                <label for="material-select">Material</label>
+                <div class="select-wrapper">
+                    <select id="material-select">
+                        <option value="steel">Structural Steel</option>
+                        <option value="aluminum">Aluminum 6061</option>
+                        <option value="copper">Copper</option>
+                        <option value="titanium">Titanium Ti-6Al-4V</option>
+                        <option value="cast-iron">Cast Iron</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="material-compare" />
+                <label for="material-compare">Compare with second material</label>
+            </div>
+
+            <div class="control-group" id="material-compare-group" style="display:none">
+                <label for="material-select2">Compare Material</label>
+                <div class="select-wrapper">
+                    <select id="material-select2">
+                        <option value="aluminum">Aluminum 6061</option>
+                        <option value="steel">Structural Steel</option>
+                        <option value="copper">Copper</option>
+                        <option value="titanium">Titanium Ti-6Al-4V</option>
+                        <option value="cast-iron">Cast Iron</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Test Control</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="material-strain-rate">Strain Rate</label>
+                    <span id="material-strain-rate-val" class="value-badge">1x</span>
+                </div>
+                <input type="range" id="material-strain-rate" min="0.25" max="4" value="1" step="0.25" />
+            </div>
+
+            <div class="checkbox-row">
+                <input type="checkbox" id="material-true-stress" />
+                <label for="material-true-stress">Show True Stress / True Strain</label>
+            </div>
+
+            <div class="action-row" style="margin-top:8px">
+                <button id="material-start-btn" class="action-btn primary" style="flex:1">▶ Start Test</button>
+                <button id="material-reset-btn" class="action-btn secondary" style="flex:1">↻ Reset</button>
+            </div>
+
+            <hr class="divider" />
+
+            <div class="readouts">
+                <div class="readout-card"><span class="readout-label">Young's Modulus (E)</span><span
+                        id="material-e-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Yield Stress (σ_y)</span><span
+                        id="material-sy-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Ultimate Stress (σ_ult)</span><span
+                        id="material-su-readout" class="readout-value">—</span></div>
+                <div class="readout-card"><span class="readout-label">Current Strain (ε)</span><span
+                        id="material-strain-readout" class="readout-value">0%</span></div>
+                <div class="readout-card"><span class="readout-label">Current Stress (σ)</span><span
+                        id="material-stress-readout" class="readout-value">0 MPa</span></div>
+                <div class="readout-card"><span class="readout-label">Toughness</span><span
+                        id="material-toughness-readout" class="readout-value">—</span></div>
+            </div>
+            <div id="material-fracture-warning" class="yield-warning hidden">💥 Specimen fractured!</div>
+        </div>
+    </div>
+
+    <!-- ═══ 2D Overlay Canvas for Mohr's Circle & Stress-Strain Curve ═══ -->
+    <canvas id="overlay-canvas"></canvas>
+
+    <!-- ═══ Help Modal ═══ -->
+    <div id="help-modal">
+        <div id="help-modal-backdrop"></div>
+        <div id="help-modal-content">
+            <button id="help-modal-close">✕</button>
+            <h2 id="help-modal-title">Help</h2>
+            <p id="help-modal-subtitle"></p>
+            <div id="help-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- ═══ Bottom Status Bar ═══ -->
+    <div id="bottom-bar">
+        <div class="bar-section">
+            <div class="bar-item"><span class="bar-dot"></span><span>MechSim Active</span></div>
+            <div class="bar-item" id="bar-module">Module: Beam</div>
+        </div>
+        <div class="bar-section">
+            <div class="bar-item" id="bar-info">Ready</div>
+            <div class="bar-item"><span class="bar-fps" id="bar-fps">60</span> FPS</div>
+        </div>
+    </div>
+
+    <!-- ═══ Info Badge (legacy) ═══ -->
+    <div id="info-badge">MechSim — Mechanics of Materials Simulator</div>
+
+    <!-- ═══ Scripts ═══ -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+      }
+    }
+  </script>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
