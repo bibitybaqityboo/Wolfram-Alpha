@@ -1,6 +1,46 @@
 # MechSim: Mechanics of Materials Simulator
 
-**MechSim** is an interactive, web-based engineering tool designed to visualize and calculate core concepts in Mechanics of Materials. It provides real-time analysis for structural elements like beams, columns, and trusses, as well as stress transformation and material properties.
+**MechSim** is an interactive engineering tool designed to visualize and calculate core concepts in Mechanics of Materials. It provides real-time analysis for structural elements like beams, columns, and trusses, as well as stress transformation and material properties.
+
+## 🤖 For AI Coding Assistants
+
+> **This project has two parallel implementations. Use the correct language for the file you are editing:**
+>
+> | File Type | Language | Run With |
+> |-----------|----------|----------|
+> | `.js`, `.html`, `.css` | **JavaScript** (ES Modules + THREE.js) | Web browser (`index.html`) |
+> | `.wl` | **Wolfram Language** (Mathematica) | Mathematica / Wolfram Cloud |
+>
+> - **JavaScript files** power the browser-based 3D simulator.
+> - **Wolfram Language files** (`MechSim*.wl`) provide the same engineering analysis as interactive `Manipulate[]` panels for Mathematica.
+> - When adding new features, implement in **both** languages if possible.
+
+## 🔧 Two Ways to Run
+
+### Option A: Web Browser (JavaScript)
+```bash
+git clone https://github.com/bibitybaqityboo/Wolfram-Alpha.git
+cd Wolfram-Alpha
+# Open index.html in any modern web browser, or use a local server:
+python -m http.server
+```
+
+### Option B: Mathematica (Wolfram Language)
+1. Open any `MechSim*.wl` file in **Mathematica** (or paste into [Wolfram Cloud](https://www.wolframcloud.com/)).
+2. Select All → Evaluate. Each file exposes a function like `MechSimBeam[]`, `MechSimMohr[]`, etc.
+3. Call the function to launch the interactive `Manipulate[]` panel.
+
+| File | Module | Function |
+|------|--------|----------|
+| `MechSimBeam.wl` | Beam Analysis | `MechSimBeam[]` |
+| `MechSimMohr.wl` | Mohr's Circle | `MechSimMohr[]` |
+| `MechSimTorsion.wl` | Torsion | `MechSimTorsion[]` |
+| `MechSimColumn.wl` | Column Buckling | `MechSimColumn[]` |
+| `MechSimPressure.wl` | Pressure Vessels | `MechSimPressure[]` |
+| `MechSimTruss.wl` | Truss Analysis | `MechSimTruss[]` |
+| `MechSimMaterial.wl` | Material Testing | `MechSimMaterial[]` |
+
+---
 
 ## 🌟 Key Features
 
@@ -48,18 +88,8 @@ Virtual tensile test simulation.
 *   **Simulation:** Animates the stress-strain curve, showing elastic region, yielding, strain hardening, and fracture.
 *   **Comparison:** Side-by-side comparison of different materials.
 
----
 
-## 🚀 How to Run Locally
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/bibitybaqityboo/Wolfram-Alpha.git
-    cd Wolfram-Alpha
-    ```
-2.  **Open the app:**
-    *   Simply open `index.html` in any modern web browser.
-    *   (Optional) For best results, use a local server (e.g., Live Server in VS Code or `python -m http.server`).
 
 ## 🤝 Contributing
 
