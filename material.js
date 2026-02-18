@@ -388,18 +388,86 @@ function drawStressStrainCurve() {
     drawProgress(stressHistory, mat.color);
     if (mat2 && compareHistory.length) drawProgress(compareHistory, mat2.color);
 
-    // Mark yield point
+    // ── Resilience Area Shading (elastic region) ──
+    const strainYield = mat.sigmaY / mat.E;
+    const strainYieldPlot = useTrue ? calcTrueStrain(strainYield) : strainYield;
+    const yieldStress = useTrue ? mat.sigmaY * (1 + strainYield) : mat.sigmaY;
+
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = '#3fb950';
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(0));
+    const elasticSteps = 30;
+    for (let i = 0; i <= elasticSteps; i++) {
+        const es = (i / elasticSteps) * strainYield;
+        const s = useTrue ? calcTrueStress(es, mat) : calcStress(es, mat);
+        const plotS = useTrue ? calcTrueStrain(es) : es;
+        ctx.lineTo(toX(plotS), toY(s));
+    }
+    ctx.lineTo(toX(strainYieldPlot), toY(0));
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // ── 0.2% Offset Yield Line ──
+    const offsetStrain = 0.002; // 0.2%
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(63, 185, 80, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const offsetEnd = strainYield + offsetStrain * 2;
+    const offsetEndPlot = useTrue ? calcTrueStrain(offsetEnd) : offsetEnd;
+    ctx.moveTo(toX(useTrue ? calcTrueStrain(offsetStrain) : offsetStrain), toY(0));
+    ctx.lineTo(toX(offsetEndPlot), toY(mat.E * (offsetEnd - offsetStrain)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // ── Yield stress horizontal line ──
     ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx.lineWidth = 0.5;
-    const yieldStress = useTrue ? mat.sigmaY * (1 + mat.sigmaY / mat.E) : mat.sigmaY;
     const yieldY = toY(yieldStress);
     ctx.beginPath(); ctx.moveTo(margin.left, yieldY); ctx.lineTo(margin.left + gw, yieldY); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.setLineDash([]);
+
+    // ── UTS horizontal line ──
+    const utsStress = useTrue ? mat.sigmaUlt * (1 + mat.strainUlt) : mat.sigmaUlt;
+    ctx.setLineDash([2, 4]);
+    ctx.strokeStyle = 'rgba(248, 81, 73, 0.2)';
+    ctx.beginPath(); ctx.moveTo(margin.left, toY(utsStress)); ctx.lineTo(margin.left + gw, toY(utsStress)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // ── Region Labels ──
+    ctx.font = '8px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.45;
+
+    // Elastic region
+    const elasticMid = strainYieldPlot / 2;
+    if (toX(elasticMid) > margin.left + 5) {
+        ctx.fillStyle = '#3fb950';
+        ctx.fillText('Elastic', toX(elasticMid), margin.top + gh - 8);
+    }
+
+    // Plastic hardening region
+    const hardenMid = useTrue ? calcTrueStrain((strainYield + mat.strainUlt) / 2) : (strainYield + mat.strainUlt) / 2;
+    ctx.fillStyle = '#58a6ff';
+    ctx.fillText('Hardening', toX(hardenMid), margin.top + gh - 8);
+
+    // Necking region
+    const neckMid = useTrue ? calcTrueStrain((mat.strainUlt + mat.strainFracture) / 2) : (mat.strainUlt + mat.strainFracture) / 2;
+    ctx.fillStyle = '#d29922';
+    ctx.fillText('Necking', toX(neckMid), margin.top + gh - 8);
+
+    ctx.globalAlpha = 1;
+
+    // ── Stress annotations ──
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.textAlign = 'left';
     ctx.font = '9px Inter, sans-serif';
-    ctx.fillText('σ_y = ' + mat.sigmaY + ' MPa', margin.left + gw - 80, yieldY - 5);
-    ctx.setLineDash([]);
+    ctx.fillText('σ_y = ' + mat.sigmaY + ' MPa', margin.left + gw - 90, yieldY - 4);
+    ctx.fillStyle = 'rgba(248, 81, 73, 0.5)';
+    ctx.fillText('σ_u = ' + mat.sigmaUlt + ' MPa', margin.left + gw - 90, toY(utsStress) - 4);
 
     // Title
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
@@ -415,6 +483,12 @@ function drawStressStrainCurve() {
         ctx.fillStyle = mat2.color;
         ctx.fillText('● ' + state.material2, margin.left + 100, margin.top + 14);
     }
+
+    // Keyboard hint
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = '8px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Press 1-7 to switch modules', w - 12, h - 6);
 }
 
 // ═══════════════════════════════════════════════════════════════

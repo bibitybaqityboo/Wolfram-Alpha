@@ -133,11 +133,12 @@ mohrCirclePlot[sx_, sy_, txy_, rotAngle_] := Module[
    Main Interactive Panel
    ══════════════════════════════════════════════════════════════════ *)
 MechSimMohr[] := Manipulate[
-  Module[{res, vm, tr, rotStress, yieldS = 250},
+  Module[{res, vm, tr, rotStress, sf},
     res = mohrCalc[sigmaX, sigmaY, tauXY];
     vm = vonMises2D[res["s1"], res["s2"]];
     tr = tresca[res["s1"], res["s2"]];
     rotStress = stressAtAngle[sigmaX, sigmaY, tauXY, rotAngle * Pi / 180];
+    sf = If[vm > 0, yieldS / vm, \[Infinity]];
 
     Column[{
       (* Results Panel *)
@@ -153,6 +154,9 @@ MechSimMohr[] := Manipulate[
           If[vm > yieldS, Red, Darker[Green]]]},
         {"Tresca", Style[NumberForm[tr, 4] <> " MPa",
           If[tr > yieldS, Red, Darker[Green]]]},
+        {"Safety Factor", Style[
+          If[sf >= 100, "\[Infinity]", NumberForm[sf, {4, 2}]],
+          If[sf < 1, Red, If[sf < 2, Orange, Darker[Green]]], Bold]},
         {"", ""},
         {Style["Rotated State (\[Theta] = " <> ToString[rotAngle] <> "\[Degree])", Bold, 11], SpanFromLeft},
         {"\[Sigma]_n", NumberForm[rotStress[[1]], 4] <> " MPa"},
@@ -174,8 +178,9 @@ MechSimMohr[] := Manipulate[
   {{tauXY, 30, "\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\) (MPa)"}, -300, 300, 1, Appearance -> "Labeled"},
   Delimiter,
   {{rotAngle, 0, "Rotation Angle \[Theta] (\[Degree])"}, -90, 90, 1, Appearance -> "Labeled"},
+  {{yieldS, 250, "Yield Stress (MPa)"}, 50, 900, 10, Appearance -> "Labeled"},
   ControlPlacement -> Left,
-  TrackedSymbols :> {sigmaX, sigmaY, tauXY, rotAngle}
+  TrackedSymbols :> {sigmaX, sigmaY, tauXY, rotAngle, yieldS}
 ]
 
 (* Run: MechSimMohr[] *)

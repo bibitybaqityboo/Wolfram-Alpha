@@ -82,6 +82,38 @@ ffPointShear[x_, P_, L_] :=
     {-P / 2, L/2 <= x <= L}
   }, 0];
 
+(* --- Overhanging Beam (Symmetric Supports at a, L-a) --- *)
+(* Uses Singularity Functions: Ramp[x] = <x>^1, UnitStep[x] = <x>^0 *)
+
+ohReaction[P_, d_, a_, L_] := Module[{R1, R2, dist = L - 2 a},
+  If[dist <= 0, Return[{P/2, P/2}]];
+  R2 = P (d - a) / dist;
+  R1 = P - R2;
+  {R1, R2}
+];
+
+ohDeflection[x_, P_, d_, a_, L_, EI_] := Module[
+  {R1, R2, sup1 = a, sup2 = L - a, C1, C2, termAtSup2},
+  {R1, R2} = ohReaction[P, d, a, L];
+  (* Calculate C1 based on y(sup2) = 0 condition *)
+  (* term(x) = 1/6 (R1 <x-sup1>^3 + R2 <x-sup2>^3 - P <x-d>^3) *)
+  termAtSup2 = 1/6 (R1 Ramp[sup2 - sup1]^3 - P Ramp[sup2 - d]^3);
+  C1 = -termAtSup2 / (sup2 - sup1);
+  C2 = -C1 * sup1;
+  
+  1/EI (1/6 (R1 Ramp[x - sup1]^3 + R2 Ramp[x - sup2]^3 - P Ramp[x - d]^3) + C1 x + C2)
+];
+
+ohMoment[x_, P_, d_, a_, L_] := Module[{R1, R2, sup1 = a, sup2 = L - a},
+  {R1, R2} = ohReaction[P, d, a, L];
+  R1 Ramp[x - sup1] + R2 Ramp[x - sup2] - P Ramp[x - d]
+];
+
+ohShear[x_, P_, d_, a_, L_] := Module[{R1, R2, sup1 = a, sup2 = L - a},
+  {R1, R2} = ohReaction[P, d, a, L];
+  R1 UnitStep[x - sup1] + R2 UnitStep[x - sup2] - P UnitStep[x - d]
+];
+
 (* ══════════════════════════════════════════════════════════════════
    Stress Heatmap Color Function
    ══════════════════════════════════════════════════════════════════ *)
@@ -126,7 +158,8 @@ beam3D[deflFn_, L_, width_, height_, EI_, yieldStress_, deformScale_] := Module[
    Main Interactive Panel
    ══════════════════════════════════════════════════════════════════ *)
 MechSimBeam[] := Manipulate[
-  Module[{mat, EE, yieldS, Ival, EI, deflFn, maxDefl, maxM, maxV, maxBendStress, sf},
+  Module[{mat, EE, yieldS, Ival, EI, deflFn, maxDefl, maxM, maxV, maxBendStress, sf,
+          ohVal = overhang * beamLength},
 
     mat = materials[material];
     EE = mat["E"];
@@ -160,6 +193,12 @@ MechSimBeam[] := Manipulate[
           "moment" -> Function[x, ffPointMoment[x, load, beamLength]],
           "shear" -> Function[x, ffPointShear[x, load, beamLength]]
         |>,
+      {"Overhanging", "Point Load"},
+        <|
+          "deflection" -> Function[x, ohDeflection[x, load, loadPos, ohVal, beamLength, EI]],
+          "moment" -> Function[x, ohMoment[x, load, loadPos, ohVal, beamLength]],
+          "shear" -> Function[x, ohShear[x, load, loadPos, ohVal, beamLength]]
+        |>,
       _,
         <|
           "deflection" -> Function[x, ssPointDeflection[x, load, loadPos, beamLength, EI]],
@@ -188,16 +227,23 @@ MechSimBeam[] := Manipulate[
         "Beam Analysis Results", Background -> LightBlue],
 
       (* 3D Beam *)
-      beam3D[deflFn, beamLength, width, height, EI, yieldS, deformScale],
+      (* Overlay supports for visualization if Overhanging *)
+      If[support == "Overhanging",
+        Column[{
+          Style["Supports at " <> ToString[ohVal] <> " m and " <> ToString[beamLength - ohVal] <> " m", 8, Gray],
+          beam3D[deflFn, beamLength, width, height, EI, yieldS, deformScale]
+        }],
+        beam3D[deflFn, beamLength, width, height, EI, yieldS, deformScale]
+      ],
 
       (* Diagrams *)
       GraphicsRow[{
         Plot[deflFn["moment", x], {x, 0, beamLength},
           PlotLabel -> "Bending Moment (N\[CenterDot]m)",
-          Filling -> Axis, PlotStyle -> Blue, ImageSize -> 250],
+          Filling -> Axis, PlotStyle -> Blue, ImageSize -> 250, Exclusions -> None],
         Plot[deflFn["shear", x], {x, 0, beamLength},
           PlotLabel -> "Shear Force (N)",
-          Filling -> Axis, PlotStyle -> Red, ImageSize -> 250]
+          Filling -> Axis, PlotStyle -> Red, ImageSize -> 250, Exclusions -> None]
       }],
       Plot[deflFn["deflection", x] * 1000, {x, 0, beamLength},
         PlotLabel -> "Deflection (mm)",
@@ -207,9 +253,11 @@ MechSimBeam[] := Manipulate[
 
   {{material, "Steel", "Material"}, Keys[materials]},
   {{support, "Simply Supported", "Support Type"},
-    {"Simply Supported", "Cantilever", "Fixed-Fixed"}},
+    {"Simply Supported", "Cantilever", "Fixed-Fixed", "Overhanging"}},
   {{loadType, "Point Load", "Load Type"}, {"Point Load", "Distributed"}},
   Delimiter,
+  {{overhang, 0.2, "Overhang Fraction"}, 0.05, 0.45, 0.05, Appearance -> "Labeled",
+    Enabled -> (support == "Overhanging")},
   {{beamLength, 4.0, "Beam Length (m)"}, 0.5, 10, 0.1, Appearance -> "Labeled"},
   {{width, 0.05, "Width (m)"}, 0.01, 0.3, 0.005, Appearance -> "Labeled"},
   {{height, 0.1, "Height (m)"}, 0.01, 0.5, 0.005, Appearance -> "Labeled"},
@@ -217,7 +265,7 @@ MechSimBeam[] := Manipulate[
   {{loadPos, 2.0, "Load Position (m)"}, 0.1, 9.9, 0.1, Appearance -> "Labeled"},
   {{deformScale, 100, "Deformation Scale"}, 1, 1000, 1, Appearance -> "Labeled"},
   ControlPlacement -> Left,
-  TrackedSymbols :> {material, support, loadType, beamLength, width, height, load, loadPos, deformScale}
+  TrackedSymbols :> {material, support, loadType, overhang, beamLength, width, height, load, loadPos, deformScale}
 ]
 
 (* Run: MechSimBeam[] *)

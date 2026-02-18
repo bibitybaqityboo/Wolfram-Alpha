@@ -102,7 +102,7 @@ calcResilience[mat_] := mat["sigmaY"]^2 / (2 mat["E"]);
 stressStrainPlot[mat1Name_, mat2Name_, showComparison_, useTrue_, currentStrain_] :=
   Module[{mat1, mat2, plots = {}, epilogs = {},
           maxStrain, maxStress, stressFn1, stressFn2, strainFn,
-          currentStress1, yieldLine},
+          currentStress1, strainYield, offsetStrain = 0.002},
 
     mat1 = tensileMaterials[mat1Name];
 
@@ -114,6 +114,7 @@ stressStrainPlot[mat1Name_, mat2Name_, showComparison_, useTrue_, currentStrain_
 
     maxStrain = mat1["strainFracture"] * 1.1;
     maxStress = mat1["sigmaUlt"] * 1.4;
+    strainYield = mat1["sigmaY"] / mat1["E"];
 
     AppendTo[plots,
       Plot[stressFn1[s], {s, 0, mat1["strainFracture"]},
@@ -147,15 +148,43 @@ stressStrainPlot[mat1Name_, mat2Name_, showComparison_, useTrue_, currentStrain_
       },
       PlotRange -> {{0, maxStrain}, {0, maxStress}},
       ImageSize -> 550,
-      GridLines -> {None, {mat1["sigmaY"]}},
-      GridLinesStyle -> Directive[Gray, Dashed],
+      GridLines -> {None, {mat1["sigmaY"], mat1["sigmaUlt"]}},
+      GridLinesStyle -> Directive[Gray, Dashed, Thin],
+      Prolog -> {
+        (* Resilience (elastic) area shading *)
+        {Lighter[Green, 0.85], EdgeForm[None],
+         Polygon[Join[
+           Table[{s, calcEngStress[s, mat1]}, {s, 0, strainYield, strainYield / 20}],
+           {{strainYield, 0}, {0, 0}}
+         ]]}
+      },
       Epilog -> {
         (* Current point marker *)
         {Magenta, PointSize[Large],
          Point[{strainFn[currentStrain], currentStress1}]},
-        (* Yield stress label *)
+
+        (* 0.2% Offset Yield Line *)
+        {Darker[Green], Dashed, Thin,
+         Line[{{offsetStrain, 0},
+               {strainYield + offsetStrain,
+                mat1["E"] * strainYield}}]},
+        Text[Style["0.2% offset", 7, Darker[Green]], 
+          {strainYield + offsetStrain + 0.005, mat1["sigmaY"] * 0.5}],
+
+        (* Region labels *)
+        Text[Style["Elastic", 8, Darker[Green], Bold],
+          {strainYield / 2, -maxStress * 0.06}],
+        Text[Style["Hardening", 8, Blue, Bold],
+          {(strainYield + mat1["strainUlt"]) / 2, -maxStress * 0.06}],
+        Text[Style["Necking", 8, Orange, Bold],
+          {(mat1["strainUlt"] + mat1["strainFracture"]) / 2, -maxStress * 0.06}],
+
+        (* Stress annotations *)
         Text[Style["\[Sigma]_y = " <> ToString[mat1["sigmaY"]] <> " MPa",
           9, Gray], Scaled[{0.85, 0.3}]],
+        Text[Style["\[Sigma]_u = " <> ToString[mat1["sigmaUlt"]] <> " MPa",
+          9, Red], Scaled[{0.85, 0.25}]],
+
         (* Legend *)
         Text[Style["\[FilledCircle] " <> mat1Name, 10, mat1["color"]],
           Scaled[{0.15, 0.93}]],

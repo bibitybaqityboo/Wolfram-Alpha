@@ -364,6 +364,43 @@ function showDeformed() {
         mesh.position.set(nx, ny, 0.1);
         deformedGroup.add(mesh);
     }
+
+    // Force labels on members
+    for (let i = 0; i < members.length; i++) {
+        const m = members[i];
+        const nA = nodes[m.a];
+        const nB = nodes[m.b];
+        const scale = deformScale;
+        const ax = nA.x + u[m.a * 2] * scale;
+        const ay = nA.y + u[m.a * 2 + 1] * scale;
+        const bx = nB.x + u[m.b * 2] * scale;
+        const by = nB.y + u[m.b * 2 + 1] * scale;
+        const force = forces[i];
+        const forceKN = (force / 1000).toFixed(1);
+        const label = (force > 0 ? '+' : '') + forceKN + ' kN';
+
+        // Create canvas texture for the label
+        const labelCanvas = document.createElement('canvas');
+        const lCtx = labelCanvas.getContext('2d');
+        labelCanvas.width = 128;
+        labelCanvas.height = 32;
+        lCtx.fillStyle = force > 0 ? 'rgba(20,50,80,0.85)' : 'rgba(80,20,20,0.85)';
+        lCtx.roundRect(0, 0, 128, 32, 6);
+        lCtx.fill();
+        lCtx.font = 'bold 16px Inter, sans-serif';
+        lCtx.textAlign = 'center';
+        lCtx.textBaseline = 'middle';
+        lCtx.fillStyle = force > 0 ? '#79c0ff' : '#ff7b72';
+        lCtx.fillText(label, 64, 17);
+
+        const tex = new THREE.CanvasTexture(labelCanvas);
+        tex.minFilter = THREE.LinearFilter;
+        const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.position.set((ax + bx) / 2, (ay + by) / 2 + 0.25, 0.3);
+        sprite.scale.set(1.2, 0.3, 1);
+        deformedGroup.add(sprite);
+    }
 }
 
 function analyze() {

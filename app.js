@@ -54,6 +54,15 @@ export function heatmapColor(t) {
 
 export function lerp(a, b, t) { return a + (b - a) * t; }
 
+// Smooth 3D lerp for camera transitions
+function lerpV3(from, to, t) {
+    return new THREE.Vector3(
+        lerp(from.x, to.x, t),
+        lerp(from.y, to.y, t),
+        lerp(from.z, to.z, t)
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Material Cache — Reuse materials instead of recreating
 // ═══════════════════════════════════════════════════════════════
@@ -107,11 +116,11 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x040810);
 scene.fog = new THREE.FogExp2(0x040810, 0.025);
 
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 150);
+const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 150);
 camera.position.set(5, 4, 6);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -196,14 +205,17 @@ scene.add(particles);
 // Environment Backgrounds — Context per module
 // ═══════════════════════════════════════════════════════════════
 const environments = {
-    beam: { bgColor: 0x060a10, fogColor: 0x060a10, fogDensity: 0.025, accentHue: 0x58a6ff },
-    mohr: { bgColor: 0x08080f, fogColor: 0x08080f, fogDensity: 0.02, accentHue: 0xa371f7 },
-    torsion: { bgColor: 0x060a10, fogColor: 0x060a10, fogDensity: 0.025, accentHue: 0x3fb950 },
-    column: { bgColor: 0x0a0810, fogColor: 0x0a0810, fogDensity: 0.025, accentHue: 0xd29922 },
-    pressure: { bgColor: 0x0a0808, fogColor: 0x0a0808, fogDensity: 0.02, accentHue: 0xf85149 },
-    truss: { bgColor: 0x060a10, fogColor: 0x060a10, fogDensity: 0.025, accentHue: 0x58a6ff },
-    material: { bgColor: 0x08090c, fogColor: 0x08090c, fogDensity: 0.018, accentHue: 0x58a6ff },
+    beam: { bgColor: 0x060a10, fogDensity: 0.025, accentHue: 0x58a6ff, camPos: [5, 4, 6], camTarget: [0, 0.5, 0] },
+    mohr: { bgColor: 0x08080f, fogDensity: 0.02, accentHue: 0xa371f7, camPos: [4, 3, 5], camTarget: [0, 0.8, 0] },
+    torsion: { bgColor: 0x060a10, fogDensity: 0.025, accentHue: 0x3fb950, camPos: [4, 3, 6], camTarget: [0, 0.5, 0] },
+    column: { bgColor: 0x0a0810, fogDensity: 0.025, accentHue: 0xd29922, camPos: [5, 5, 7], camTarget: [0, 1.5, 0] },
+    pressure: { bgColor: 0x0a0808, fogDensity: 0.02, accentHue: 0xf85149, camPos: [5, 3, 6], camTarget: [0, 0.5, 0] },
+    truss: { bgColor: 0x060a10, fogDensity: 0.025, accentHue: 0x58a6ff, camPos: [0, 5, 15], camTarget: [5, 2, 0] },
+    material: { bgColor: 0x08090c, fogDensity: 0.018, accentHue: 0x58a6ff, camPos: [3, 3, 5], camTarget: [0, 1.0, 0] },
 };
+
+// Camera animation state
+let cameraTransition = null;
 
 function setEnvironment(name) {
     const env = environments[name] || environments.beam;
@@ -212,6 +224,18 @@ function setEnvironment(name) {
     scene.fog.color.copy(bgColor);
     scene.fog.density = env.fogDensity;
     particleMat.color.set(env.accentHue);
+
+    // Smooth camera transition
+    const targetPos = new THREE.Vector3(...env.camPos);
+    const targetLookAt = new THREE.Vector3(...env.camTarget);
+    cameraTransition = {
+        fromPos: camera.position.clone(),
+        toPos: targetPos,
+        fromTarget: orbitControls.target.clone(),
+        toTarget: targetLookAt,
+        progress: 0,
+        duration: 0.8, // seconds
+    };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -267,6 +291,35 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchModule(btn.dataset.mode));
 });
 
+// ── Keyboard Shortcuts ──
+const TAB_KEYS = { '1': 'beam', '2': 'mohr', '3': 'torsion', '4': 'column', '5': 'pressure', '6': 'truss', '7': 'material' };
+
+document.addEventListener('keydown', (e) => {
+    // Don't capture if typing in an input/textarea
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+    // Number keys 1-7 switch tabs
+    if (TAB_KEYS[e.key]) {
+        e.preventDefault();
+        switchModule(TAB_KEYS[e.key]);
+        return;
+    }
+    // ? or / opens help
+    if (e.key === '?' || (e.key === '/' && !e.ctrlKey && !e.metaKey)) {
+        e.preventDefault();
+        const helpModal = $('help-modal');
+        if (helpModal) helpModal.classList.toggle('visible');
+        return;
+    }
+    // Escape closes help modal
+    if (e.key === 'Escape') {
+        const helpModal = $('help-modal');
+        if (helpModal && helpModal.classList.contains('visible')) {
+            helpModal.classList.remove('visible');
+        }
+    }
+});
+
 // ═══════════════════════════════════════════════════════════════
 // Overlay Canvas (2D rendering for Mohr / Stress-Strain)
 // ═══════════════════════════════════════════════════════════════
@@ -285,20 +338,26 @@ resizeOverlay();
 export { scene, camera, renderer, orbitControls, overlayCanvas, overlayCtx };
 
 // ═══════════════════════════════════════════════════════════════
-// FPS Counter
+// FPS Counter — Exponential Moving Average for smooth display
 // ═══════════════════════════════════════════════════════════════
-let frameCount = 0;
-let lastFpsTime = performance.now();
+let fpsEMA = 60;
+let lastFrameTime = performance.now();
+const FPS_ALPHA = 0.1; // smoothing factor
 const fpsEl = $('bar-fps');
+let fpsUpdateCount = 0;
 
 function updateFPS() {
-    frameCount++;
     const now = performance.now();
-    if (now - lastFpsTime >= 1000) {
-        const fps = Math.round(frameCount * 1000 / (now - lastFpsTime));
-        if (fpsEl) fpsEl.textContent = fps;
-        frameCount = 0;
-        lastFpsTime = now;
+    const frameDelta = now - lastFrameTime;
+    lastFrameTime = now;
+    if (frameDelta > 0) {
+        const instantFps = 1000 / frameDelta;
+        fpsEMA = fpsEMA * (1 - FPS_ALPHA) + instantFps * FPS_ALPHA;
+    }
+    fpsUpdateCount++;
+    // Update DOM every 10 frames to reduce layout thrashing
+    if (fpsUpdateCount % 10 === 0 && fpsEl) {
+        fpsEl.textContent = Math.round(fpsEMA);
     }
 }
 
@@ -311,6 +370,17 @@ function animate() {
     requestAnimationFrame(animate);
     const dt = clock.getDelta();
     const elapsed = clock.getElapsedTime();
+
+    // Smooth camera transition
+    if (cameraTransition) {
+        cameraTransition.progress += dt / cameraTransition.duration;
+        const t = Math.min(cameraTransition.progress, 1);
+        // Ease-out cubic
+        const ease = 1 - Math.pow(1 - t, 3);
+        camera.position.copy(lerpV3(cameraTransition.fromPos, cameraTransition.toPos, ease));
+        orbitControls.target.copy(lerpV3(cameraTransition.fromTarget, cameraTransition.toTarget, ease));
+        if (t >= 1) cameraTransition = null;
+    }
 
     orbitControls.update();
 
@@ -331,12 +401,21 @@ function animate() {
     updateFPS();
 }
 
-// ── Resize ──
+// ── Debounced Resize ──
+let resizeTimeout;
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    resizeOverlay();
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        const container = $('canvas-container');
+        if (container) {
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+            resizeOverlay();
+        }
+    }, 100);
 });
 
 // ═══════════════════════════════════════════════════════════════

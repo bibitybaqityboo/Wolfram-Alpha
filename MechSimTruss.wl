@@ -249,6 +249,20 @@ trussPlot[nodes_, members_, supports_, loads_, result_, deformScale_] :=
         {l, loads}
       ],
 
+      (* Force magnitude labels on members *)
+      Table[
+        Module[{n1 = deformedNodes[[members[[i, 1]]]],
+                n2 = deformedNodes[[members[[i, 2]]]],
+                force = result["memberForces"][[i]],
+                midPt, label, col},
+          midPt = (n1 + n2) / 2 + {0, 0.2};
+          label = ToString[NumberForm[force / 1000, {4, 1}]] <> " kN";
+          col = If[force > 0, Blue, Red];
+          Text[Style[label, 7, col, Bold], midPt]
+        ],
+        {i, Length[members]}
+      ],
+
       (* Force legend *)
       {Text[Style["Blue = Tension", 10, Blue], Scaled[{0.85, 0.95}]],
        Text[Style["Red = Compression", 10, Red], Scaled[{0.85, 0.90}]]}
