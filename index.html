@@ -4,339 +4,188 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BeamSim — Structural Analysis Dashboard</title>
-    <meta name="description" content="Professional Structural Analysis Dashboard" />
+    <title>MechSim — Mechanics of Materials Simulator</title>
+    <meta name="description" content="Interactive 3D Mechanics of Materials Simulator with real-time physics" />
     <link rel="stylesheet" href="style.css" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet" />
-    <!-- Icons are using simple unicode for now, or we can use a library if requested. Sticking to unicode/embedded SVGs for simplicity and speed. -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet" />
 </head>
 
 <body>
-    <div class="app-layout">
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- HEADER                                                      -->
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <header class="app-header">
-            <div class="header-left">
-                <div class="logo">
-                    <span class="logo-icon">⬡</span>
-                    <span class="logo-text">BeamSim</span>
-                </div>
-                <div class="breadcrumbs">
-                    <span class="crumb">Structural Analysis</span>
-                    <span class="crumb-separator">/</span>
-                    <span class="crumb active">Beam</span>
-                    <span class="version-badge">v3.0</span>
+    <div id="canvas-container"></div>
+
+    <!-- ═══ Top Nav ═══ -->
+    <nav id="top-nav">
+        <div class="nav-brand">⬡ MechSim</div>
+        <div class="nav-tabs">
+            <button class="tab-btn active" data-mode="combined">
+                <span class="tab-icon">⚙️</span>Combined Loading
+            </button>
+        </div>
+    </nav>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- COMBINED LOADING PANEL                                      -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="combined-controls" class="panel">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <h2 class="panel-title">Combined Loading</h2>
+                <p class="subtitle">Axial + Bending + Torsion</p>
+            </div>
+            <button class="help-btn" data-help="combined" title="Help & Theory">?</button>
+        </div>
+        <div class="panel-body">
+            <div class="control-group">
+                <label for="combined-material">Material</label>
+                <div class="select-wrapper">
+                    <select id="combined-material">
+                        <option value="steel">Steel (σ_y = 250 MPa)</option>
+                        <option value="aluminum">Aluminum (σ_y = 270 MPa)</option>
+                        <option value="titanium">Titanium (σ_y = 880 MPa)</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="header-center">
-                <div class="playback-controls">
-                    <button class="icon-btn" title="Reset Simulation" id="sim-reset">↻</button>
-                    <button class="icon-btn" title="Step Back" id="sim-step-back">⏮</button>
-                    <button class="icon-btn primary" title="Play/Pause" id="sim-play">▶</button>
-                    <button class="icon-btn" title="Step Forward" id="sim-step-fwd">⏭</button>
+            <hr class="divider" />
+            <p class="section-title">Shaft Geometry</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-length">Length (L)</label>
+                    <span id="combined-length-val" class="value-badge">2.0 m</span>
                 </div>
+                <input type="range" id="combined-length" min="0.5" max="5" value="2" step="0.1" />
             </div>
 
-            <div class="header-right">
-                <button class="btn secondary" id="btn-save">💾 Save</button>
-                <button class="btn primary" id="btn-export">📥 Export</button>
-                <button class="icon-btn" title="Settings">⚙️</button>
-                <div class="user-profile">👤</div>
-            </div>
-        </header>
-
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- LEFT SIDEBAR: INPUTS                                        -->
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <aside class="sidebar-left">
-            <div class="sidebar-content">
-                <!-- ACCORDION 1: MATERIAL -->
-                <div class="accordion-item active">
-                    <div class="accordion-header">
-                        <span class="accordion-icon">1.</span>
-                        <span class="accordion-title">Material</span>
-                        <span class="accordion-chevron">^</span>
-                    </div>
-                    <div class="accordion-body">
-                        <div class="control-group">
-                            <label>Material Library</label>
-                            <div class="select-wrapper">
-                                <select id="beam-material">
-                                    <option value="steel">Structural Steel ASTM A36</option>
-                                    <option value="aluminum">Aluminum 6061-T6</option>
-                                    <option value="wood">Douglas Fir (Wood)</option>
-                                    <option value="concrete">Concrete C30/37</option>
-                                    <option value="titanium">Titanium Ti-6Al-4V</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="row-2-col">
-                            <div class="control-group">
-                                <label>Young's Mod. (GPa)</label>
-                                <input type="number" id="mat-e" value="200" readonly class="input-readonly">
-                            </div>
-                            <div class="control-group">
-                                <label>Poisson's Ratio</label>
-                                <input type="number" id="mat-nu" value="0.30" readonly class="input-readonly">
-                            </div>
-                        </div>
-                    </div>
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-radius">Outer Radius (r)</label>
+                    <span id="combined-radius-val" class="value-badge">50 mm</span>
                 </div>
-
-                <!-- ACCORDION 2: GEOMETRY -->
-                <div class="accordion-item active">
-                    <div class="accordion-header">
-                        <span class="accordion-icon">2.</span>
-                        <span class="accordion-title">Geometry</span>
-                        <span class="accordion-chevron">^</span>
-                    </div>
-                    <div class="accordion-body">
-                        <div class="control-group">
-                            <div class="label-row">
-                                <label>Length (L) [m]</label>
-                                <span id="beam-length-val" class="value-badge">5.0m</span>
-                            </div>
-                            <input type="range" id="beam-length" min="1" max="10" value="5" step="0.1" class="slider">
-                        </div>
-                        <div class="row-2-col">
-                            <div class="control-group">
-                                <label>Width (b) [mm]</label>
-                                <input type="number" id="beam-width-input" value="150" class="input-field">
-                            </div>
-                            <div class="control-group">
-                                <label>Height (h) [mm]</label>
-                                <input type="number" id="beam-height-input" value="300" class="input-field">
-                            </div>
-                        </div>
-                        <div class="row-2-col">
-                            <div class="control-group">
-                                <label>Web (t) [mm]</label>
-                                <input type="number" id="beam-web-input" value="12" class="input-field">
-                            </div>
-                            <div class="control-group">
-                                <label>Flange (t) [mm]</label>
-                                <input type="number" id="beam-flange-input" value="18" class="input-field">
-                            </div>
-                        </div>
-                        <!-- Hidden sliders for JS compatibility if needed, using inputs above primarily -->
-                        <input type="range" id="beam-width" min="20" max="1000" value="150" hidden>
-                        <input type="range" id="beam-height" min="20" max="1000" value="300" hidden>
-                    </div>
-                </div>
-
-                <!-- ACCORDION 3: LOADS -->
-                <div class="accordion-item active">
-                    <div class="accordion-header">
-                        <span class="accordion-icon">3.</span>
-                        <span class="accordion-title">Loads</span>
-                        <span class="accordion-chevron">^</span>
-                    </div>
-                    <div class="accordion-body">
-                        <div class="load-card">
-                            <div class="load-card-header">
-                                <span class="load-dot point"></span>
-                                <span class="load-title">Point Load 1</span>
-                            </div>
-                            <div class="row-2-col">
-                                <div class="control-group">
-                                    <label>Force (Fy)</label>
-                                    <div class="input-unit-wrapper">
-                                        <input type="number" id="beam-point-load-input" value="-50">
-                                        <span class="unit">kN</span>
-                                    </div>
-                                </div>
-                                <div class="control-group">
-                                    <label>Position (x)</label>
-                                    <div class="input-unit-wrapper">
-                                        <input type="number" id="beam-load-pos-input" value="2.5" step="0.1">
-                                        <span class="unit">m</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Hidden ranges for compatibility -->
-                            <input type="range" id="beam-point-load" min="-200" max="200" value="-50" hidden>
-                            <input type="range" id="beam-load-pos" min="0" max="100" value="50" hidden>
-                        </div>
-
-                        <div class="load-card">
-                            <div class="load-card-header">
-                                <span class="load-dot dist"></span>
-                                <span class="load-title">Distributed Load</span>
-                            </div>
-                            <div class="control-group">
-                                <label>Magnitude</label>
-                                <div class="input-unit-wrapper">
-                                    <input type="number" id="beam-dist-load-input" value="-10">
-                                    <span class="unit">kN/m</span>
-                                </div>
-                            </div>
-                            <input type="range" id="beam-dist-load" min="-100" max="100" value="-10" hidden>
-                        </div>
-
-                        <button class="btn ghost start">+ Add Load</button>
-                    </div>
-                </div>
+                <input type="range" id="combined-radius" min="10" max="150" value="50" step="1" />
             </div>
 
-            <div class="sidebar-footer">
-                <button class="btn large primary" id="btn-run-analysis">
-                    <span class="icon">🖩</span> Run Analysis
-                </button>
-            </div>
-        </aside>
-
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- CENTER VIEWPORT: 3D SIMULATION                              -->
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <main class="viewport" id="viewport">
-            <div id="canvas-container"></div>
-
-            <div class="viewport-overlay-top-left">
-                <div class="toolbar-vertical">
-                    <button class="tool-btn active" title="Select">↖</button>
-                    <button class="tool-btn" title="Pan">✋</button>
-                    <button class="tool-btn" title="Rotate">↻</button>
-                    <button class="tool-btn" title="Zoom In">+</button>
-                    <button class="tool-btn" title="Zoom Out">−</button>
-                    <button class="tool-btn" title="Reset View">⤢</button>
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-inner-radius">Inner Radius (r_i)</label>
+                    <span id="combined-inner-radius-val" class="value-badge">0 mm</span>
                 </div>
+                <input type="range" id="combined-inner-radius" min="0" max="140" value="0" step="1" />
             </div>
 
-            <div class="viewport-overlay-top-right">
-                <div class="view-cube">TOP</div>
+            <hr class="divider" />
+            <p class="section-title">Applied Loads (at free end)</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-load-axial">Axial Load (P)</label>
+                    <span id="combined-load-axial-val" class="value-badge">0 kN</span>
+                </div>
+                <input type="range" id="combined-load-axial" min="-500" max="500" value="0" step="5" />
             </div>
 
-            <div class="viewport-overlay-bottom-right">
-                <div class="stress-legend">
-                    <div class="legend-title">Von Mises Stress (MPa)</div>
-                    <div class="legend-bar"></div>
-                    <div class="legend-labels">
-                        <span>0 Min</span>
-                        <span>250 Max</span>
-                    </div>
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-load-bending">Transverse Load (V)</label>
+                    <span id="combined-load-bending-val" class="value-badge">0 kN</span>
                 </div>
+                <input type="range" id="combined-load-bending" min="-100" max="100" value="0" step="1" />
             </div>
 
-            <div class="viewport-overlay-bottom">
-                <div class="timeline-bar">
-                    <button class="timeline-play">▶</button>
-                    <span class="time-readout">0.00s</span>
-                    <div class="timeline-track">
-                        <div class="timeline-progress" style="width: 30%;"></div>
-                    </div>
-                    <span class="time-total">10.00s</span>
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-load-torsion">Torque (T)</label>
+                    <span id="combined-load-torsion-val" class="value-badge">0 kN·m</span>
                 </div>
-            </div>
-        </main>
-
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- RIGHT SIDEBAR: RESULTS                                      -->
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <aside class="sidebar-right">
-            <div class="tabs">
-                <button class="tab active">Results</button>
-                <button class="tab">Mesh</button>
-                <button class="tab">History</button>
+                <input type="range" id="combined-load-torsion" min="-50" max="50" value="0" step="0.5" />
             </div>
 
-            <div class="results-content">
-                <!-- KPI CARDS -->
-                <div class="kpi-grid">
-                    <div class="kpi-card">
-                        <div class="kpi-label">MAX STRESS</div>
-                        <div class="kpi-value-row">
-                            <span class="kpi-value" id="kpi-stress">245.8</span>
-                            <span class="kpi-unit">MPa</span>
-                        </div>
-                        <div class="kpi-badge success">✓ Pass</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-label">SAFETY FACTOR</div>
-                        <div class="kpi-value-row">
-                            <span class="kpi-value" id="kpi-safety">2.14</span>
-                        </div>
-                        <div class="kpi-badge info">👍 Optimal</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-label">MAX DEFLECTION</div>
-                        <div class="kpi-value-row">
-                            <span class="kpi-value" id="kpi-deflection">12.4</span>
-                            <span class="kpi-unit">mm</span>
-                        </div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-label">REACTION FORCE</div>
-                        <div class="kpi-value-row">
-                            <span class="kpi-value" id="kpi-reaction">48.2</span>
-                            <span class="kpi-unit">kN</span>
-                        </div>
-                    </div>
-                </div>
+            <hr class="divider" />
 
-                <!-- DIAGRAMS -->
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <span class="chart-dot red"></span>
-                        <span class="chart-title">SHEAR FORCE (SFD)</span>
-                        <span class="chart-unit-tag">kN / m</span>
-                    </div>
-                    <div class="chart-area" id="chart-sfd">
-                        <!-- Canvas for SFD Chart -->
-                        <canvas id="canvas-sfd"></canvas>
-                    </div>
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-deform-scale">Deformation Scale</label>
+                    <span id="combined-deform-scale-val" class="value-badge">20x</span>
                 </div>
-
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <span class="chart-dot blue"></span>
-                        <span class="chart-title">BENDING MOMENT (BMD)</span>
-                        <span class="chart-unit-tag">kNm / m</span>
-                    </div>
-                    <div class="chart-area" id="chart-bmd">
-                        <!-- Canvas for BMD Chart -->
-                        <canvas id="canvas-bmd"></canvas>
-                    </div>
-                </div>
+                <input type="range" id="combined-deform-scale" min="1" max="100" value="20" step="1" />
             </div>
 
-            <!-- ANALYSIS LOG -->
-            <div class="analysis-log">
-                <div class="log-header">
-                    <span class="log-title">ANALYSIS LOG</span>
-                    <span class="status-indicator ready">System Ready</span>
+            <button id="combined-reset-btn" class="reset-btn" style="margin-top:12px">↻ Reset All</button>
+            <hr class="divider" />
+
+            <div class="readouts">
+                <div class="readout-card">
+                    <span class="readout-label">Max Normal Stress (σ_x)</span>
+                    <span id="combined-sigma-readout" class="readout-value">—</span>
                 </div>
-                <div class="log-body">
-                    <div class="log-line"><span class="log-time">[10:42:01]</span> Initializing solver engine v2.4...
-                    </div>
-                    <div class="log-line"><span class="log-time">[10:42:02]</span> Geometry mesh generated (14,200
-                        nodes).</div>
-                    <div class="log-line success"><span class="log-time">[10:42:05]</span> Calculation complete.
-                        Converged in 45ms.</div>
-                    <div class="log-line info"><span class="log-time">[10:42:05]</span> Rendering results...</div>
+                <div class="readout-card">
+                    <span class="readout-label">Max Shear Stress (τ_xy)</span>
+                    <span id="combined-tau-readout" class="readout-value">—</span>
+                </div>
+                <div class="readout-card">
+                    <span class="readout-label">Principal Stress (σ_1)</span>
+                    <span id="combined-p1-readout" class="readout-value">—</span>
+                </div>
+                <div class="readout-card">
+                    <span class="readout-label">Principal Stress (σ_2)</span>
+                    <span id="combined-p2-readout" class="readout-value">—</span>
+                </div>
+                <div class="readout-card"
+                    style="grid-column: span 2; background: rgba(163,113,247,0.1); border-color: rgba(163,113,247,0.3);">
+                    <span class="readout-label" style="color: var(--accent);">Von Mises Stress (σ_vm)</span>
+                    <span id="combined-vm-readout" class="readout-value"
+                        style="color: var(--accent); font-size: 1.25rem;">—</span>
+                </div>
+                <div class="readout-card" style="grid-column: span 2;">
+                    <span class="readout-label">Safety Factor</span>
+                    <span id="combined-safety-readout" class="readout-value">—</span>
                 </div>
             </div>
-        </aside>
+            <div id="combined-yield-warning" class="yield-warning hidden">⚠️ Yield stress exceeded!</div>
+        </div>
     </div>
 
-    <!-- Hidden elements for backward compatibility scripts initially, or to be refactored later -->
-    <div id="beam-support-type" style="display:none">Simply Supported</div>
-    <div id="beam-deform-scale" style="display:none">50</div>
-    <div id="beam-show-stress" style="display:none">true</div>
-    <input type="checkbox" id="beam-show-moment" checked style="display:none">
-    <input type="checkbox" id="beam-show-shear" checked style="display:none">
+    <!-- ═══ 2D Overlay Canvas for Mohr's Circle & Stress-Strain Curve ═══ -->
+    <canvas id="overlay-canvas"></canvas>
 
+    <!-- ═══ Help Modal ═══ -->
+    <div id="help-modal">
+        <div id="help-modal-backdrop"></div>
+        <div id="help-modal-content">
+            <button id="help-modal-close">✕</button>
+            <h2 id="help-modal-title">Help</h2>
+            <p id="help-modal-subtitle"></p>
+            <div id="help-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- ═══ Bottom Status Bar ═══ -->
+    <div id="bottom-bar">
+        <div class="bar-section">
+            <div class="bar-item"><span class="bar-dot"></span><span>MechSim Active</span></div>
+            <div class="bar-item" id="bar-module">Module: Combined Loading</div>
+        </div>
+        <div class="bar-section">
+            <div class="bar-item" id="bar-info">Ready</div>
+            <div class="bar-item"><span class="bar-fps" id="bar-fps">60</span> FPS</div>
+        </div>
+    </div>
+
+    <!-- ═══ Info Badge (legacy) ═══ -->
+    <div id="info-badge">MechSim — Mechanics of Materials Simulator</div>
+
+    <!-- ═══ Scripts ═══ -->
     <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+      }
+    }
+  </script>
     <script type="module" src="app.js"></script>
 </body>
 
