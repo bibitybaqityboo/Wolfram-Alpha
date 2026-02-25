@@ -155,13 +155,13 @@ MechSimCombined[] := Manipulate[
 
     Column[{
       Panel[Grid[{
-        {"Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", NumberForm[results["sigmaX"] / 1*^6, {6, 2}] <> " MPa"},
-        {"Max Shear Stress (\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\))", NumberForm[results["tauXY"] / 1*^6, {6, 2}] <> " MPa"},
-        {"Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", NumberForm[results["p1"] / 1*^6, {6, 2}] <> " MPa"},
-        {"Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", NumberForm[results["p2"] / 1*^6, {6, 2}] <> " MPa"},
-        {"Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", Style[NumberForm[results["vm"] / 1*^6, {6, 2}] <> " MPa", Bold, If[results["vm"] > yield, Red, Black]]},
-        {"Safety Factor", If[sf == \[Infinity], "\[Infinity]", Style[NumberForm[sf, {5, 2}], If[sf >= 2, Darker[Green], If[sf >= 1, Orange, Red]]]]}
-      }, Alignment -> Left, Spacings -> {2, 0.5}], "Combined Loading Results", Background -> GrayLevel[0.95]],
+        {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", Black], Style[NumberForm[results["sigmaX"] / 1*^6, {6, 2}] <> " MPa", Black]},
+        {Style["Max Shear Stress (\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\))", Black], Style[NumberForm[results["tauXY"] / 1*^6, {6, 2}] <> " MPa", Black]},
+        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", Black], Style[NumberForm[results["p1"] / 1*^6, {6, 2}] <> " MPa", Black]},
+        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", Black], Style[NumberForm[results["p2"] / 1*^6, {6, 2}] <> " MPa", Black]},
+        {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", Black], Style[NumberForm[results["vm"] / 1*^6, {6, 2}] <> " MPa", Bold, If[results["vm"] > yield, Red, Black]]},
+        {Style["Safety Factor", Black], If[sf == \[Infinity], Style["\[Infinity]", Black], Style[NumberForm[sf, {5, 2}], If[sf >= 2, Darker[Green], If[sf >= 1, Orange, Red]]]]}
+      }, Alignment -> Left, Spacings -> {2, 0.5}], Style["Combined Loading Results", Black, Bold], Background -> GrayLevel[0.95]],
       
       If[results["vm"] > yield, Style["\[WarningSign] Yield stress exceeded!", Red, Bold], ""],
 
