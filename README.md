@@ -26,19 +26,9 @@ python -m http.server
 ```
 
 ### Option B: Mathematica (Wolfram Language)
-1. Open any `MechSim*.wl` file in **Mathematica** (or paste into [Wolfram Cloud](https://www.wolframcloud.com/)).
-2. Select All → Evaluate. Each file exposes a function like `MechSimBeam[]`, `MechSimMohr[]`, etc.
-3. Call the function to launch the interactive `Manipulate[]` panel.
-
-| File | Module | Function |
-|------|--------|----------|
-| `MechSimBeam.wl` | Beam Analysis | `MechSimBeam[]` |
-| `MechSimMohr.wl` | Mohr's Circle | `MechSimMohr[]` |
-| `MechSimTorsion.wl` | Torsion | `MechSimTorsion[]` |
-| `MechSimColumn.wl` | Column Buckling | `MechSimColumn[]` |
-| `MechSimPressure.wl` | Pressure Vessels | `MechSimPressure[]` |
-| `MechSimTruss.wl` | Truss Analysis | `MechSimTruss[]` |
-| `MechSimMaterial.wl` | Material Testing | `MechSimMaterial[]` |
+1. Open `MechSimCombined.wl` in **Mathematica** (or paste into [Wolfram Cloud](https://www.wolframcloud.com/)).
+2. Select All → Evaluate.
+3. Call `MechSimCombined[]` to launch the interactive `Manipulate[]` panel for Combined Loading.
 
 ---
 
@@ -52,7 +42,7 @@ Visualize the compounded effects of simultaneous axial, bending, and torsional l
 *   **Safety:** Real-time safety factor calculation and yielding warnings based on the selected material.
 *   **Visuals:** Dynamic 3D deformation reflecting axial elongation, bending deflection, and torsional twist, overlaid with a Von Mises stress heatmap.
 
-> **Note:** Additional standalone analysis modules (Beam, Truss, Pressure Vessels, etc.) are available in the Wolfram Language (`.wl`) implementation.
+> **Note:** The Wolfram Language (`.wl`) implementation matches the consolidated Combined Loading module from the Javascript implementation.
 
 
 
