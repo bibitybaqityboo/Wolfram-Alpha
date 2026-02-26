@@ -207,4 +207,4 @@ MechSimCombined[] := Manipulate[
   TrackedSymbols :> {heatmapType, material, length, outerR, innerR, axialLoad, bentLoad, torsionLoad, deformScale}
 ]
 
-(* Run: MechSimCombined[] *)
+MechSimCombined[]
