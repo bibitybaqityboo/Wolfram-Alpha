@@ -40,9 +40,11 @@ Visualize the compounded effects of simultaneous axial, bending, and torsional l
 *   **Geometry:** Configurable shaft length and inner/outer radii (hollow or solid).
 *   **Analysis:** Calculates Principal Stresses ($\sigma_1, \sigma_2$), Max Normal Stress ($\sigma_x$), Max Shear Stress ($\tau_{xy}$), and Von Mises Stress ($\sigma_{vm}$).
 *   **Safety:** Real-time safety factor calculation and yielding warnings based on the selected material.
-*   **Visuals:** Dynamic 3D deformation reflecting axial elongation, bending deflection, and torsional twist, overlaid with a Von Mises stress heatmap.
+*   **Visuals:** Dynamic 3D deformation reflecting axial elongation, bending deflection, and torsional twist.
+*   **Color Mapping:** The Wolfram implementation features a customizable color heatmap (Toggle between Von Mises, Max Shear, and Max Normal Stress) complete with a Bar Legend.
+*   **Load Indicators:** The Wolfram implementation includes dynamic 3D load arrows representing applied forces and moments, along with a visual fixed support at the base.
 
-> **Note:** The Wolfram Language (`.wl`) implementation matches the consolidated Combined Loading module from the Javascript implementation.
+> **Note:** The Wolfram Language (`.wl`) implementation matches the consolidated Combined Loading module from the Javascript implementation, but currently has more advanced 3D coloring and legend features.
 
 
 

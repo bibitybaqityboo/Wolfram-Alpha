@@ -50,8 +50,8 @@ calcCombined[P_, V_, T_, L_, r_, ri_, E_, G_] := Module[
 (* ══════════════════════════════════════════════════════════════════
    3D Visualization
    ══════════════════════════════════════════════════════════════════ *)
-visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_] := Module[
-  {A, Ival, J, deformX, deformY, twist, Mx, sigX, tauXY, nodeVM, colorFn, meshRange, endX, endY, arrP, arrV, arrT, support},
+visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_, heatmapType_] := Module[
+  {A, Ival, J, deformX, deformY, twist, Mx, sigX, tauXY, nodeVM, colorFn, meshRange, endX, endY, arrP, arrV, arrT, support, plot3D, legendMax, legendLabel},
 
   A = \[Pi] (rOuter^2 - rInner^2);
   Ival = \[Pi]/4 (rOuter^4 - rInner^4);
@@ -65,7 +65,7 @@ visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_] := Modu
 
   (* Stress at point (x, theta, rNode) *)
   (* Bending Moment M(x) = V*(L - x). Max stress is at y = rNode * Cos[theta] *)
-  colorFn = Function[{x, y, z, u, v}, Module[{rNode, th, actualY, Mval, sx, txy, vmNode},
+  colorFn = Function[{x, y, z, u, v}, Module[{rNode, th, actualY, Mval, sx, txy, vmNode, stressRatio},
     rNode = rOuter; (* Map outer surface color *)
     th = v - twist[u * L];
     actualY = rNode * Cos[th];
@@ -73,7 +73,13 @@ visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_] := Modu
     sx = P / A - (Mval * actualY) / Ival;
     txy = T * rNode / J;
     vmNode = Sqrt[sx^2 + 3 txy^2];
-    heatmapColor[vmNode / yield]
+    
+    stressRatio = Which[
+      heatmapType === "Normal Stress", Abs[sx] / yield,
+      heatmapType === "Shear Stress",  Abs[txy] / (yield / Sqrt[3]),
+      True,                            vmNode / yield
+    ];
+    heatmapColor[stressRatio]
   ]];
 
   endX = L + deformX[L];
@@ -111,7 +117,7 @@ visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_] := Modu
     Graphics3D[{}]
   ];
 
-  Show[
+  plot3D = Show[
     support,
     ParametricPlot3D[
       {u * L + deformX[u * L],
@@ -135,7 +141,20 @@ visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_] := Modu
     ],
     arrP, arrV, arrT,
     ViewPoint -> {2, -2, 1.5}, PlotRange -> All, ImageSize -> 500
-  ]
+  ];
+  
+  legendMax = Which[
+    heatmapType === "Normal Stress", yield,
+    heatmapType === "Shear Stress",  yield / Sqrt[3],
+    True,                            yield
+  ];
+  legendLabel = Which[
+    heatmapType === "Normal Stress", "Max Normal Stress (Pa)",
+    heatmapType === "Shear Stress",  "Max Shear Stress (Pa)",
+    True,                            "Von Mises Stress (Pa)"
+  ];
+
+  Legended[plot3D, BarLegend[{heatmapColor, {0, legendMax}}, LegendLabel -> Style[legendLabel, 12, Bold, Black]]]
 ];
 
 (* ══════════════════════════════════════════════════════════════════
@@ -165,10 +184,12 @@ MechSimCombined[] := Manipulate[
       
       If[results["vm"] > yield, Style["\[WarningSign] Yield stress exceeded!", Red, Bold], ""],
 
-      visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length, outerR/1000, rFinalInner/1000, E, G, yield, deformScale]
+      visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length, outerR/1000, rFinalInner/1000, E, G, yield, deformScale, heatmapType]
     }, Spacings -> 1]
   ],
 
+  {{heatmapType, "Von Mises Stress", "Heatmap Display"}, {"Von Mises Stress", "Normal Stress", "Shear Stress"}},
+  Delimiter,
   {{material, "Steel", "Material"}, {"Steel", "Aluminum", "Titanium"}},
   Delimiter,
   Style["Shaft Geometry", Bold],
@@ -183,7 +204,7 @@ MechSimCombined[] := Manipulate[
   Delimiter,
   {{deformScale, 20, "Deformation Scale"}, 1, 100, 1, Appearance -> "Labeled"},
   ControlPlacement -> Left,
-  TrackedSymbols :> {material, length, outerR, innerR, axialLoad, bentLoad, torsionLoad, deformScale}
+  TrackedSymbols :> {heatmapType, material, length, outerR, innerR, axialLoad, bentLoad, torsionLoad, deformScale}
 ]
 
 (* Run: MechSimCombined[] *)
