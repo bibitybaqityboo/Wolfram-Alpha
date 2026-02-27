@@ -149,12 +149,16 @@ visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_, heatmap
     True,                            yield
   ];
   legendLabel = Which[
-    heatmapType === "Normal Stress", "Max Normal Stress (Pa)",
-    heatmapType === "Shear Stress",  "Max Shear Stress (Pa)",
-    True,                            "Von Mises Stress (Pa)"
+    heatmapType === "Normal Stress", "Max Normal Stress (MPa)",
+    heatmapType === "Shear Stress",  "Max Shear Stress (MPa)",
+    True,                            "Von Mises Stress (MPa)"
   ];
 
-  Legended[plot3D, BarLegend[{heatmapColor, {0, legendMax}}, LegendLabel -> Style[legendLabel, 12, Bold, Black]]]
+  Legended[plot3D, BarLegend[{heatmapColor[# / (legendMax/1*^6)] &, {0, legendMax/1*^6}}, 
+    LegendLabel -> Style[legendLabel, 12, Bold, Black],
+    LegendMarkerSize -> 300,
+    LabelStyle -> {FontSize -> 11}
+  ]]
 ];
 
 (* ══════════════════════════════════════════════════════════════════
@@ -174,35 +178,35 @@ MechSimCombined[] := Manipulate[
 
     Column[{
       Panel[Grid[{
-        {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", Black], Style[NumberForm[results["sigmaX"] / 1*^6, {6, 2}] <> " MPa", Black]},
-        {Style["Max Shear Stress (\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\))", Black], Style[NumberForm[results["tauXY"] / 1*^6, {6, 2}] <> " MPa", Black]},
-        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", Black], Style[NumberForm[results["p1"] / 1*^6, {6, 2}] <> " MPa", Black]},
-        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", Black], Style[NumberForm[results["p2"] / 1*^6, {6, 2}] <> " MPa", Black]},
-        {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", Black], Style[NumberForm[results["vm"] / 1*^6, {6, 2}] <> " MPa", Bold, If[results["vm"] > yield, Red, Black]]},
-        {Style["Safety Factor", Black], If[sf == \[Infinity], Style["\[Infinity]", Black], Style[NumberForm[sf, {5, 2}], If[sf >= 2, Darker[Green], If[sf >= 1, Orange, Red]]]]}
-      }, Alignment -> Left, Spacings -> {2, 0.5}], Style["Combined Loading Results", Black, Bold], Background -> GrayLevel[0.95]],
+        {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", 11], Style[NumberForm[results["sigmaX"] / 1*^6, {6, 2}] <> " MPa", 11, Bold]},
+        {Style["Max Shear Stress (\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\))", 11], Style[NumberForm[results["tauXY"] / 1*^6, {6, 2}] <> " MPa", 11, Bold]},
+        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", 11], Style[NumberForm[results["p1"] / 1*^6, {6, 2}] <> " MPa", 11, Bold]},
+        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", 11], Style[NumberForm[results["p2"] / 1*^6, {6, 2}] <> " MPa", 11, Bold]},
+        {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", 12, Darker[Blue]], Style[NumberForm[results["vm"] / 1*^6, {6, 2}] <> " MPa", 12, Bold, If[results["vm"] > yield, Red, Darker[Blue]]]},
+        {Style["Safety Factor", 11], If[sf == \[Infinity], Style["\[Infinity]", 11, Bold], Style[NumberForm[sf, {5, 2}], 11, Bold, If[sf >= 2, Darker[Green], If[sf >= 1, Orange, Red]]]]}
+      }, Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, Dividers -> Center], 
+      Style["\[ThinSpace] Combined Loading Results", 14, Bold], Background -> White],
       
-      If[results["vm"] > yield, Style["\[WarningSign] Yield stress exceeded!", Red, Bold], ""],
+      If[results["vm"] > yield, Framed[Style["\[WarningSign] YIELD STRESS EXCEEDED ", 12, Bold, Darker[Red]], Background -> Lighter[Red, 0.9], FrameStyle -> Thick, FrameColor -> Darker[Red]], ""],
 
       visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length, outerR/1000, rFinalInner/1000, E, G, yield, deformScale, heatmapType]
     }, Spacings -> 1]
   ],
 
-  {{heatmapType, "Von Mises Stress", Tooltip["Heatmap Display", "Select the type of stress to visualize on the 3D heatmap."]}, {"Von Mises Stress", "Normal Stress", "Shear Stress"}},
+  Style["Visualization Settings", 12, Bold],
+  {{heatmapType, "Von Mises Stress", "Heatmap Display"}, {"Von Mises Stress", "Normal Stress", "Shear Stress"}, ControlType -> RadioButtonBar},
+  {{deformScale, 20, "Deformation Scale"}, 1, 100, 1, Appearance -> "Labeled"},
   Delimiter,
-  {{material, "Steel", Tooltip["Material", "Select material to update yield strength and stiffness properties."]}, {"Steel", "Aluminum", "Titanium"}},
+  Style["Material & Geometry", 12, Bold],
+  {{material, "Steel", "Material"}, {"Steel", "Aluminum", "Titanium"}, ControlType -> SetterBar},
+  {{length, 2.0, "Length L (m)"}, 0.5, 5.0, 0.1, Appearance -> "Labeled"},
+  {{outerR, 50, "Outer Radius (mm)"}, 10, 150, 1, Appearance -> "Labeled"},
+  {{innerR, 0, "Inner Radius (mm)"}, 0, 140, 1, Appearance -> "Labeled"},
   Delimiter,
-  Style["Shaft Geometry", Bold],
-  {{length, 2.0, Tooltip["Length (m)", "Sets the length of the shaft. Affects magnitude of bending and twist."]}, 0.5, 5.0, 0.1, Appearance -> "Labeled"},
-  {{outerR, 50, Tooltip["Outer Radius (mm)", "Sets the external radius. Larger radius greatly increases stiffness."]}, 10, 150, 1, Appearance -> "Labeled"},
-  {{innerR, 0, Tooltip["Inner Radius (mm)", "Sets the internal hole radius for hollow shafts. 0 = solid shaft."]}, 0, 140, 1, Appearance -> "Labeled"},
-  Delimiter,
-  Style["Applied Loads (at free end)", Bold],
-  {{axialLoad, 0, Tooltip["Axial Load P (kN)", "Applies tension or compression strictly along the length."]}, -500, 500, 5, Appearance -> "Labeled"},
-  {{bentLoad, 0, Tooltip["Transverse Load V (kN)", "Perpendicular force causing bending moment and shear stress."]}, -100, 100, 1, Appearance -> "Labeled"},
-  {{torsionLoad, 0, Tooltip["Torque T (kN\[CenterDot]m)", "Twisting force applied at the free end."]}, -50, 50, 0.5, Appearance -> "Labeled"},
-  Delimiter,
-  {{deformScale, 20, Tooltip["Deformation Scale", "Exaggerates the true physical deformation purely for visualization."]}, 1, 100, 1, Appearance -> "Labeled"},
+  Style["Applied Loads (at free end)", 12, Bold],
+  {{axialLoad, 0, "Axial Load P (kN)"}, -500, 500, 5, Appearance -> "Labeled"},
+  {{bentLoad, 0, "Transverse Load V (kN)"}, -100, 100, 1, Appearance -> "Labeled"},
+  {{torsionLoad, 0, "Torque T (kN\[CenterDot]m)"}, -50, 50, 0.5, Appearance -> "Labeled"},
   ControlPlacement -> Left,
   TrackedSymbols :> {heatmapType, material, length, outerR, innerR, axialLoad, bentLoad, torsionLoad, deformScale}
 ]
