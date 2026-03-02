@@ -1131,7 +1131,7 @@ input[type="range"]::-moz-range-progress {
     font-size: 0.80rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: var(--text-bright);
+    color: var(--accent);
     transition: color var(--transition-fast), text-shadow var(--transition-fast);
 }
 

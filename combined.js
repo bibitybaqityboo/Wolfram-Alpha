@@ -12,6 +12,28 @@ let shaftMesh, shaftGeom, shaftMat, originalPositions;
 let fixedWallMesh;
 let loadArrows = [];
 let dirty = true;
+let computeTimeout = null;
+
+function requestComputation() {
+    clearTimeout(computeTimeout);
+    const setReadout = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+    setReadout('combined-sigma-readout', '...');
+    setReadout('combined-tau-readout', '...');
+    setReadout('combined-p1-readout', '...');
+    setReadout('combined-p2-readout', '...');
+    setReadout('combined-vm-readout', '...');
+    const safetyEl = $('combined-safety-readout');
+    if (safetyEl) {
+        safetyEl.textContent = '...';
+        safetyEl.className = 'readout-value';
+    }
+    const yieldWarn = $('combined-yield-warning');
+    if (yieldWarn) yieldWarn.classList.add('hidden');
+
+    computeTimeout = setTimeout(() => {
+        dirty = true;
+    }, 500);
+}
 
 const SHAFT_SEGS_RADIAL = 32;
 const SHAFT_SEGS_HEIGHT = 80;
@@ -163,7 +185,7 @@ function createShaft() {
     group.add(shaftMesh);
 
     originalPositions = shaftGeom.attributes.position.array.slice();
-    dirty = true;
+    // Do not set dirty = true here; let requestComputation handle it
 }
 
 function createWall() {
@@ -368,6 +390,58 @@ function updateReadouts() {
     } else {
         yieldWarn.classList.add('hidden');
     }
+
+    drawBendingMomentGraph();
+}
+
+function drawBendingMomentGraph() {
+    const canvas = $('bending-moment-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const L = state.length;
+    const V = state.loadBending;
+    const maxM = Math.abs(V * L);
+
+    // Draw neutral axis
+    ctx.beginPath();
+    ctx.moveTo(0, height / 2);
+    ctx.lineTo(width, height / 2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if (maxM < 1e-6) return;
+
+    // Draw Moment diagram
+    const startY = height / 2 - (V * L > 0 ? 1 : -1) * (height / 2 - 15);
+
+    ctx.beginPath();
+    ctx.moveTo(0, startY);
+    ctx.lineTo(width, height / 2);
+    ctx.lineTo(width, height / 2);
+    ctx.lineTo(0, height / 2);
+    ctx.closePath();
+
+    ctx.fillStyle = V > 0 ? 'rgba(248, 81, 73, 0.4)' : 'rgba(63, 185, 80, 0.4)';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(0, startY);
+    ctx.lineTo(width, height / 2);
+    ctx.strokeStyle = V > 0 ? '#f85149' : '#3fb950';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label max moment at fixed end
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px var(--mono, monospace)';
+    ctx.textAlign = 'left';
+    ctx.fillText(formatSI(maxM, 'N·m'), 8, startY < height / 2 ? startY - 8 : startY + 14);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -377,13 +451,13 @@ function updateReadouts() {
 function bindUI() {
     $('combined-material').addEventListener('change', e => {
         state.material = e.target.value;
-        createShaft(); dirty = true;
+        createShaft(); requestComputation();
     });
 
     $('combined-length').addEventListener('input', e => {
         state.length = parseFloat(e.target.value);
         $('combined-length-val').textContent = state.length.toFixed(1) + ' m';
-        createShaft(); createWall(); createLoadArrows(); dirty = true;
+        createShaft(); createWall(); createLoadArrows(); requestComputation();
     });
 
     $('combined-radius').addEventListener('input', e => {
@@ -394,7 +468,7 @@ function bindUI() {
             $('combined-inner-radius').value = state.innerR * 1000;
             $('combined-inner-radius-val').textContent = (state.innerR * 1000) + ' mm';
         }
-        createShaft(); createLoadArrows(); dirty = true;
+        createShaft(); createLoadArrows(); requestComputation();
     });
 
     $('combined-inner-radius').addEventListener('input', e => {
@@ -403,31 +477,31 @@ function bindUI() {
         if (state.innerR >= state.outerR) {
             state.innerR = state.outerR - 0.005;
         }
-        createShaft(); createLoadArrows(); dirty = true;
+        createShaft(); createLoadArrows(); requestComputation();
     });
 
     $('combined-load-axial').addEventListener('input', e => {
         state.loadAxial = parseFloat(e.target.value) * 1000; // slider in kN
         $('combined-load-axial-val').textContent = parseFloat(e.target.value).toFixed(1) + ' kN';
-        createLoadArrows(); dirty = true;
+        createLoadArrows(); requestComputation();
     });
 
     $('combined-load-bending').addEventListener('input', e => {
         state.loadBending = parseFloat(e.target.value) * 1000; // slider in kN
         $('combined-load-bending-val').textContent = parseFloat(e.target.value).toFixed(1) + ' kN';
-        createLoadArrows(); dirty = true;
+        createLoadArrows(); requestComputation();
     });
 
     $('combined-load-torsion').addEventListener('input', e => {
         state.loadTorsion = parseFloat(e.target.value) * 1000; // slider in kN.m
         $('combined-load-torsion-val').textContent = parseFloat(e.target.value).toFixed(1) + ' kN·m';
-        createLoadArrows(); dirty = true;
+        createLoadArrows(); requestComputation();
     });
 
     $('combined-deform-scale').addEventListener('input', e => {
         state.deformScale = parseInt(e.target.value);
         $('combined-deform-scale-val').textContent = state.deformScale + 'x';
-        dirty = true;
+        requestComputation();
     });
 
     $('combined-reset-btn').addEventListener('click', () => {
@@ -454,7 +528,7 @@ function bindUI() {
             if (window.updateSliderFill) window.updateSliderFill(s);
         });
 
-        createShaft(); createWall(); createLoadArrows(); dirty = true;
+        createShaft(); createWall(); createLoadArrows(); requestComputation();
     });
 }
 
@@ -475,7 +549,7 @@ export function initCombinedModule() {
     registerModule('combined', {
         activate() {
             group.visible = true;
-            dirty = true;
+            requestComputation();
         },
         deactivate() {
             group.visible = false;
