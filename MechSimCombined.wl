@@ -191,12 +191,12 @@ MechSimCombined[] := Manipulate[
 
       Column[{
         Panel[Grid[{
-          {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", 11], Style[ToString[NumberForm[results["sigmaX"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
-          {Style["Max Shear Stress (\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\))", 11], Style[ToString[NumberForm[results["tauXY"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
-          {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", 11], Style[ToString[NumberForm[results["p1"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
-          {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", 11], Style[ToString[NumberForm[results["p2"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+          {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", 11, Darker[Blue]], Style[ToString[NumberForm[results["sigmaX"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+          {Style["Max Shear Stress (\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\))", 11, Darker[Blue]], Style[ToString[NumberForm[results["tauXY"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+          {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", 11, Darker[Blue]], Style[ToString[NumberForm[results["p1"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+          {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", 11, Darker[Blue]], Style[ToString[NumberForm[results["p2"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
           {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", 12, Darker[Blue]], Style[ToString[NumberForm[results["vm"] / 1*^6, {6, 2}]] <> " MPa", 12, Bold, If[results["vm"] > yield, Red, Blue]]},
-          {Style["Safety Factor", 11], If[sf == \[Infinity], Style["\[Infinity]", 11, Bold], Style[NumberForm[sf, {5, 2}], 11, Bold, If[sf >= 2, Darker[Green], If[sf >= 1, Orange, Red]]]]}
+          {Style["Safety Factor", 11, Darker[Blue]], If[sf == \[Infinity], Style["\[Infinity]", 11, Bold], Style[NumberForm[sf, {5, 2}], 11, Bold, If[sf >= 2, Darker[Green], If[sf >= 1, Orange, Red]]]]}
         }, Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, Dividers -> Center], 
         Style["\[ThinSpace] Combined Loading Results", 14, Bold], Background -> White],
         
