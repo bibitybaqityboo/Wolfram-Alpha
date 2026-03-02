@@ -165,7 +165,7 @@ visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_, heatmap
    Main Interactive Panel
    ══════════════════════════════════════════════════════════════════ *)
 MechSimCombined[] := Manipulate[
-  Module[{mat, E, G, yield, results, rFinalInner, sf},
+  Module[{mat, E, G, yield, results, rFinalInner, sf, plotBMD},
 
     mat = materials[material];
     E = mat["E"];
@@ -173,24 +173,35 @@ MechSimCombined[] := Manipulate[
     yield = mat["yieldStress"];
     rFinalInner = If[innerR >= outerR, outerR - 0.005, innerR];
 
+    Pause[0.5];
+
     results = calcCombined[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length, outerR/1000, rFinalInner/1000, E, G];
     sf = If[results["vm"] > 0, yield / results["vm"], \[Infinity]];
 
+    plotBMD = Plot[bentLoad * 10^3 * (length - x), {x, 0, length}, 
+     PlotStyle -> If[bentLoad > 0, Red, Darker[Green]], 
+     Filling -> Axis, 
+     FillingStyle -> Directive[Opacity[0.4], If[bentLoad > 0, Red, Darker[Green]]], 
+     PlotLabel -> Style["Bending Moment Diagram M(x)", 12, Bold], 
+     AxesLabel -> {"x (m)", "Moment (N\[CenterDot]m)"}, 
+     ImageSize -> 400];
+
     Column[{
       Panel[Grid[{
-        {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", 11], Style[NumberForm[results["sigmaX"] / 1*^6, {6, 2}] <> " MPa", 11, Bold]},
-        {Style["Max Shear Stress (\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\))", 11], Style[NumberForm[results["tauXY"] / 1*^6, {6, 2}] <> " MPa", 11, Bold]},
-        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", 11], Style[NumberForm[results["p1"] / 1*^6, {6, 2}] <> " MPa", 11, Bold]},
-        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", 11], Style[NumberForm[results["p2"] / 1*^6, {6, 2}] <> " MPa", 11, Bold]},
-        {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", 12, Darker[Blue]], Style[NumberForm[results["vm"] / 1*^6, {6, 2}] <> " MPa", 12, Bold, If[results["vm"] > yield, Red, Darker[Blue]]]},
+        {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", 11], Style[NumberForm[results["sigmaX"] / 1*^6, {6, 2}] <> " MPa", 11, Bold, Blue]},
+        {Style["Max Shear Stress (\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\))", 11], Style[NumberForm[results["tauXY"] / 1*^6, {6, 2}] <> " MPa", 11, Bold, Blue]},
+        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", 11], Style[NumberForm[results["p1"] / 1*^6, {6, 2}] <> " MPa", 11, Bold, Blue]},
+        {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", 11], Style[NumberForm[results["p2"] / 1*^6, {6, 2}] <> " MPa", 11, Bold, Blue]},
+        {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", 12, Darker[Blue]], Style[NumberForm[results["vm"] / 1*^6, {6, 2}] <> " MPa", 12, Bold, If[results["vm"] > yield, Red, Blue]]},
         {Style["Safety Factor", 11], If[sf == \[Infinity], Style["\[Infinity]", 11, Bold], Style[NumberForm[sf, {5, 2}], 11, Bold, If[sf >= 2, Darker[Green], If[sf >= 1, Orange, Red]]]]}
       }, Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, Dividers -> Center], 
       Style["\[ThinSpace] Combined Loading Results", 14, Bold], Background -> White],
       
       If[results["vm"] > yield, Framed[Style["\[WarningSign] YIELD STRESS EXCEEDED ", 12, Bold, Darker[Red]], Background -> Lighter[Red, 0.9], FrameStyle -> Thick, FrameColor -> Darker[Red]], ""],
 
-      visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length, outerR/1000, rFinalInner/1000, E, G, yield, deformScale, heatmapType]
-    }, Spacings -> 1]
+      visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length, outerR/1000, rFinalInner/1000, E, G, yield, deformScale, heatmapType],
+      plotBMD
+    }, Spacings -> 1, Alignment -> Center]
   ],
 
   Style["Visualization Settings", 12, Bold],
