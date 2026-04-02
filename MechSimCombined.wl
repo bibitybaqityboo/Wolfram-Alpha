@@ -1,6 +1,7 @@
 (* ══════════════════════════════════════════════════════════════════
    MechSimCombined.wl — Combined Loading Module (Wolfram Language)
    Simulates Axial, Bending, and Torsion loads simultaneously
+   with optional point load at arbitrary position
    ══════════════════════════════════════════════════════════════════ *)
 
 (* ── Material Database ── *)
@@ -14,35 +15,38 @@ materials = <|
 heatmapColor[t_] := Blend[{Blue, Cyan, Green, Yellow, Red}, Clip[t, {0, 1}]];
 
 (* ══════════════════════════════════════════════════════════════════
-   Calculations
+   Calculations (solid bar only)
    ══════════════════════════════════════════════════════════════════ *)
-calcCombined[P_, V_, T_, L_, r_, ri_, E_, G_] := Module[
-  {A, Ival, J, Mmax, sigAxial, sigBend, sigXmax, tauTorsion, tauXYmax, sigAvg, Rval, p1, p2, vm, delL, delY, phi},
-  
-  A = \[Pi] (r^2 - ri^2);
-  Ival = \[Pi]/4 (r^4 - ri^4);
-  J = \[Pi]/2 (r^4 - ri^4);
-  
-  Mmax = Abs[V] * L;
-  
-  sigAxial = P / A;
+calcCombined[P_, V_, T_, L_, r_, E_, G_, ptFx_:0, ptFy_:0, ptFz_:0, ptXp_:0] := Module[
+  {A, Ival, J, MmaxY, MmaxZ, Mmax, sigAxial, sigBend, sigXmax,
+   tauTorsion, tauXYmax, sigAvg, Rval, p1, p2, vm, delL, delY, phi},
+
+  A = \[Pi] r^2;
+  Ival = \[Pi]/4 r^4;
+  J = \[Pi]/2 r^4;
+
+  MmaxY = Abs[V * L + ptFy * ptXp];
+  MmaxZ = Abs[ptFz * ptXp];
+  Mmax = Sqrt[MmaxY^2 + MmaxZ^2];
+
+  sigAxial = Max[Abs[P], Abs[P + ptFx]] / A;
   sigBend = (Mmax * r) / Ival;
-  sigXmax = Abs[sigAxial] + Abs[sigBend];
-  
+  sigXmax = sigAxial + sigBend;
+
   tauTorsion = (T * r) / J;
   tauXYmax = Abs[tauTorsion];
-  
+
   sigAvg = sigXmax / 2;
   Rval = Sqrt[(sigAvg)^2 + tauXYmax^2];
-  
+
   p1 = sigAvg + Rval;
   p2 = sigAvg - Rval;
   vm = Sqrt[p1^2 - p1 p2 + p2^2];
-  
+
   delL = (P * L) / (A * E);
   delY = (V * L^3) / (3 * E * Ival);
   phi = (T * L) / (G * J);
-  
+
   <|"sigmaX" -> sigXmax, "tauXY" -> tauXYmax, "p1" -> p1, "p2" -> p2, "vm" -> vm,
     "deltaL" -> delL, "deltaY" -> delY, "phi" -> phi, "A" -> A, "I" -> Ival, "J" -> J|>
 ];
@@ -50,99 +54,195 @@ calcCombined[P_, V_, T_, L_, r_, ri_, E_, G_] := Module[
 (* ══════════════════════════════════════════════════════════════════
    3D Visualization
    ══════════════════════════════════════════════════════════════════ *)
-visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_, heatmapType_] := Module[
-  {A, Ival, J, deformX, deformY, twist, Mx, sigX, tauXY, nodeVM, colorFn, meshRange, endX, endY, arrP, arrV, arrT, support, plot3D, legendMax, legendLabel},
+visualizeShaft[P_, V_, T_, L_, rOuter_, E_, G_, yield_, scale_,
+  heatmapType_, zoom_, ptFx_:0, ptFy_:0, ptFz_:0, ptXp_:0] := Module[
+  {A, Ival, J, deformX, deformY, deformZ, twist, colorFn,
+   endX, endY, endZ, arrP, arrV, arrT, arrPt, support, plot3D,
+   legendMax, legendLabel, nHelix, nRings, nPts, rDraw, helixLines, ringLines,
+   ptXpC, endCap, endCapGrid, twistEnd, nSlices, nCircles},
 
-  A = \[Pi] (rOuter^2 - rInner^2);
-  Ival = \[Pi]/4 (rOuter^4 - rInner^4);
-  J = \[Pi]/2 (rOuter^4 - rInner^4);
+  A = \[Pi] rOuter^2;
+  Ival = \[Pi]/4 rOuter^4;
+  J = \[Pi]/2 rOuter^4;
+  ptXpC = Clip[ptXp, {0, L}];
 
-  (* Deformation functions over length x *)
-  deformX[x_] := (P * x) / (A * E) * scale;
-  (* Bending cantilever equation *)
-  deformY[x_] := If[V != 0, (V * x^2) / (6 * E * Ival) * (3 * L - x) * scale, 0];
+  (* ── Deformation functions (superposition) ── *)
+  deformX[x_] := If[ptFx != 0 && ptXpC > 0,
+    If[x <= ptXpC,
+      (P + ptFx) * x / (A * E),
+      (P + ptFx) * ptXpC / (A * E) + P * (x - ptXpC) / (A * E)],
+    P * x / (A * E)] * scale;
+
+  deformY[x_] := Module[{dEnd, dPt},
+    dEnd = If[V != 0, (V * x^2) / (6 * E * Ival) * (3 * L - x), 0];
+    dPt = If[ptFy != 0 && ptXpC > 0,
+      If[x <= ptXpC,
+        (ptFy * x^2) / (6 * E * Ival) * (3 * ptXpC - x),
+        (ptFy * ptXpC^2) / (6 * E * Ival) * (3 * x - ptXpC)], 0];
+    (dEnd + dPt) * scale];
+
+  deformZ[x_] := If[ptFz != 0 && ptXpC > 0,
+    If[x <= ptXpC,
+      (ptFz * x^2) / (6 * E * Ival) * (3 * ptXpC - x),
+      (ptFz * ptXpC^2) / (6 * E * Ival) * (3 * x - ptXpC)
+    ] * scale, 0];
+
   twist[x_] := (T * x) / (G * J) * scale;
 
-  (* Stress at point (x, theta, rNode) *)
-  (* Bending Moment M(x) = V*(L - x). Max stress is at y = rNode * Cos[theta] *)
-  colorFn = Function[{x, y, z, u, v}, Module[{rNode, th, actualY, Mval, sx, txy, vmNode, stressRatio},
-    rNode = rOuter; (* Map outer surface color *)
-    th = v - twist[u * L];
-    actualY = rNode * Cos[th];
-    Mval = V * (L - u * L);
-    sx = P / A - (Mval * actualY) / Ival;
-    txy = T * rNode / J;
-    vmNode = Sqrt[sx^2 + 3 txy^2];
-    
-    stressRatio = Which[
-      heatmapType === "Normal Stress", Abs[sx] / yield,
-      heatmapType === "Shear Stress",  Abs[txy] / (yield / Sqrt[3]),
-      True,                            vmNode / yield
-    ];
-    heatmapColor[stressRatio]
+  (* ── Stress color function ── *)
+  colorFn = Function[{x, y, z, u, v},
+    Module[{rNode, th, actualY, MvalY, MvalZ, Mval, sx, txy, vmNode, stressRatio, xPos},
+      rNode = rOuter; xPos = u * L;
+      th = v - twist[xPos];
+      actualY = rNode * Cos[th];
+      MvalY = V * (L - xPos) + If[xPos <= ptXpC, ptFy * (ptXpC - xPos), 0];
+      MvalZ = If[xPos <= ptXpC, ptFz * (ptXpC - xPos), 0];
+      Mval = Sqrt[MvalY^2 + MvalZ^2];
+      sx = (If[xPos <= ptXpC, P + ptFx, P]) / A - (Mval * actualY) / Ival;
+      txy = T * rNode / J;
+      vmNode = Sqrt[sx^2 + 3 txy^2];
+      stressRatio = Which[
+        heatmapType === "Normal Stress", Abs[sx] / yield,
+        heatmapType === "Shear Stress",  Abs[txy] / (yield / Sqrt[3]),
+        True,                            vmNode / yield];
+      heatmapColor[stressRatio]
   ]];
 
   endX = L + deformX[L];
   endY = deformY[L];
-  
+  endZ = deformZ[L];
+  twistEnd = twist[L];
+
+  (* ── Support wall ── *)
   support = Graphics3D[{
-    GrayLevel[0.6], Opacity[0.8], 
+    GrayLevel[0.6], Opacity[0.8],
     Cuboid[{-L*0.05, -rOuter*1.5, -rOuter*1.5}, {0, rOuter*1.5, rOuter*1.5}]
   }];
-  
-  arrP = If[P != 0, 
-    Graphics3D[{Red, Arrowheads[0.05], 
-      Arrow[If[P > 0, 
-        {{endX, endY, 0}, {endX + L*0.3, endY, 0}}, 
-        {{endX + L*0.3, endY, 0}, {endX, endY, 0}}]]
-    }], 
-    Graphics3D[{}]
-  ];
-  
+
+  (* ── End load arrows ── *)
+  arrP = If[P != 0,
+    Graphics3D[{Red, Arrowheads[0.05],
+      Arrow[If[P > 0,
+        {{endX, endY, endZ}, {endX + L*0.3, endY, endZ}},
+        {{endX + L*0.3, endY, endZ}, {endX, endY, endZ}}]]
+    }], Graphics3D[{}]];
+
   arrV = If[V != 0,
-    Graphics3D[{Darker[Green], Arrowheads[0.05], 
-      Arrow[If[V > 0, 
-        {{endX, endY - L*0.3, 0}, {endX, endY - rOuter*1.1, 0}}, 
-        {{endX, endY + L*0.3, 0}, {endX, endY + rOuter*1.1, 0}}]]
-    }], 
-    Graphics3D[{}]
-  ];
+    Graphics3D[{Darker[Green], Arrowheads[0.05],
+      Arrow[If[V > 0,
+        {{endX, endY - L*0.3, endZ}, {endX, endY - rOuter*1.1, endZ}},
+        {{endX, endY + L*0.3, endZ}, {endX, endY + rOuter*1.1, endZ}}]]
+    }], Graphics3D[{}]];
 
   arrT = If[T != 0,
-    Graphics3D[{Blue, Arrowheads[0.05], 
+    Graphics3D[{Blue, Arrowheads[0.05],
       Table[Arrow[
-        Table[{endX, endY + rOuter*1.3*Cos[th + Sign[T]*dTh], rOuter*1.3*Sin[th + Sign[T]*dTh]}, {dTh, 0, Pi/3, Pi/12}]
+        Table[{endX, endY + rOuter*1.3*Cos[th + Sign[T]*dTh],
+               endZ + rOuter*1.3*Sin[th + Sign[T]*dTh]},
+          {dTh, 0, Pi/3, Pi/12}]
       ], {th, 0, 3 Pi/2, Pi/2}]
-    }], 
-    Graphics3D[{}]
+    }], Graphics3D[{}]];
+
+  (* ── Point load arrow (orange/magenta) ── *)
+  arrPt = If[ptFx != 0 || ptFy != 0 || ptFz != 0,
+    Module[{xPt, yPt, zPt, arrows = {}, aLen = L * 0.2},
+      xPt = ptXpC + deformX[ptXpC];
+      yPt = deformY[ptXpC];
+      zPt = deformZ[ptXpC];
+      If[ptFy != 0, AppendTo[arrows,
+        {Orange, Arrowheads[0.05],
+         Arrow[{{xPt, yPt + Sign[ptFy]*aLen, zPt}, {xPt, yPt, zPt}}]}]];
+      If[ptFz != 0, AppendTo[arrows,
+        {Magenta, Arrowheads[0.05],
+         Arrow[{{xPt, yPt, zPt + Sign[ptFz]*aLen}, {xPt, yPt, zPt}}]}]];
+      If[ptFx != 0, AppendTo[arrows,
+        {Orange, Arrowheads[0.05],
+         Arrow[{{xPt + Sign[ptFx]*aLen, yPt, zPt}, {xPt, yPt, zPt}}]}]];
+      Graphics3D[arrows]
+    ], Graphics3D[{}]];
+
+  (* ── Helicone grid lines on cylinder surface ── *)
+  nHelix = 12; nRings = 16; nPts = 100; rDraw = rOuter * 1.015;
+
+  helixLines = Graphics3D[{
+    Directive[Black, Opacity[0.9]],
+    Table[
+      Tube[Table[
+        Module[{xPos = (i / nPts) * L, th0 = k * 2 \[Pi] / nHelix},
+          {xPos + deformX[xPos],
+           rDraw * Cos[th0 + twist[xPos]] + deformY[xPos],
+           rDraw * Sin[th0 + twist[xPos]] + deformZ[xPos]}
+        ], {i, 0, nPts}], rOuter * 0.008
+      ], {k, 0, nHelix - 1}]
+  }];
+
+  ringLines = Graphics3D[{
+    Directive[Black, Opacity[0.9]],
+    Table[
+      Module[{xPos = (j / nRings) * L},
+        Tube[Table[
+          {xPos + deformX[xPos],
+           rDraw * Cos[th + twist[xPos]] + deformY[xPos],
+           rDraw * Sin[th + twist[xPos]] + deformZ[xPos]},
+          {th, 0, 2 \[Pi] + 2 \[Pi] / 48, 2 \[Pi] / 48}], rOuter * 0.006
+        ]
+      ], {j, 0, nRings}]
+  }];
+
+  (* ── End cap: filled disk at free end ── *)
+  endCap = ParametricPlot3D[
+    {endX,
+     rr * Cos[th + twistEnd] + endY,
+     rr * Sin[th + twistEnd] + endZ},
+    {rr, 0, rOuter}, {th, 0, 2 \[Pi]},
+    Mesh -> None, PlotPoints -> {12, 30},
+    PlotStyle -> Directive[GrayLevel[0.85], Opacity[0.9]],
+    Boxed -> False, Axes -> False, Lighting -> "Neutral"
   ];
 
+  (* ── Pizza-slice grid on end cap: radial lines + concentric circles ── *)
+  nSlices = 12;
+  nCircles = 4;
+
+  endCapGrid = Graphics3D[{
+    Directive[Black, Opacity[0.95]],
+    (* Radial lines — like pizza slices *)
+    Table[
+      Tube[{
+        {endX, endY, endZ},
+        {endX,
+         rOuter * Cos[k * 2 \[Pi] / nSlices + twistEnd] + endY,
+         rOuter * Sin[k * 2 \[Pi] / nSlices + twistEnd] + endZ}
+      }, rOuter * 0.007], {k, 0, nSlices - 1}],
+    (* Concentric circles *)
+    Table[
+      Tube[Table[
+        {endX,
+         (j / nCircles) * rOuter * Cos[th + twistEnd] + endY,
+         (j / nCircles) * rOuter * Sin[th + twistEnd] + endZ},
+        {th, 0, 2 \[Pi] + 2 \[Pi] / 48, 2 \[Pi] / 48}], rOuter * 0.005
+      ], {j, 1, nCircles}]
+  }];
+
+  (* ── Assemble 3D plot ── *)
   plot3D = Show[
     support,
     ParametricPlot3D[
       {u * L + deformX[u * L],
        rOuter * Cos[v + twist[u * L]] + deformY[u * L],
-       rOuter * Sin[v + twist[u * L]]},
+       rOuter * Sin[v + twist[u * L]] + deformZ[u * L]},
       {u, 0, 1}, {v, 0, 2 \[Pi]},
-      Mesh -> False, PlotPoints -> {30, 30},
+      Mesh -> None, PlotPoints -> {40, 40},
       ColorFunction -> colorFn,
       ColorFunctionScaling -> False, Boxed -> False, Axes -> False, Lighting -> "Neutral"
     ],
-    If[rInner > 0,
-      ParametricPlot3D[
-        {u * L + deformX[u * L],
-         rInner * Cos[v + twist[u * L]] + deformY[u * L],
-         rInner * Sin[v + twist[u * L]]},
-        {u, 0, 1}, {v, 0, 2 \[Pi]},
-        Mesh -> False, PlotPoints -> {20, 20},
-        PlotStyle -> GrayLevel[0.8], Boxed -> False, Axes -> False
-      ],
-      Graphics3D[{}]
-    ],
-    arrP, arrV, arrT,
-    ViewPoint -> {2, -2, 1.5}, PlotRange -> All, ImageSize -> 500
+    endCap, endCapGrid,
+    helixLines, ringLines,
+    arrP, arrV, arrT, arrPt,
+    ViewPoint -> {2, -2, 1.5}, ViewAngle -> (35 Degree) / zoom,
+    PlotRange -> All, ImageSize -> 500, SphericalRegion -> True
   ];
-  
+
   legendMax = Which[
     heatmapType === "Normal Stress", yield,
     heatmapType === "Shear Stress",  yield / Sqrt[3],
@@ -154,7 +254,7 @@ visualizeShaft[P_, V_, T_, L_, rOuter_, rInner_, E_, G_, yield_, scale_, heatmap
     True,                            "Von Mises Stress (MPa)"
   ];
 
-  Legended[plot3D, BarLegend[{heatmapColor[# / (legendMax/1*^6)] &, {0, legendMax/1*^6}}, 
+  Legended[plot3D, BarLegend[{heatmapColor[# / (legendMax/1*^6)] &, {0, legendMax/1*^6}},
     LegendLabel -> Style[legendLabel, 12, Bold, Black],
     LegendMarkerSize -> 300,
     LabelStyle -> {FontSize -> 11}
@@ -168,62 +268,96 @@ MechSimCombined[] := Manipulate[
   ControlActive[
     Column[{
       Style["\[ThinSpace] Computations Paused During Interaction...", 14, Bold, Gray],
-      visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length, outerR/1000, If[innerR >= outerR, outerR - 0.005, innerR]/1000, materials[material]["E"], materials[material]["G"], materials[material]["yieldStress"], deformScale, heatmapType]
+      visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length,
+        outerR/1000, materials[material]["E"], materials[material]["G"],
+        materials[material]["yieldStress"], deformScale, heatmapType, magnification,
+        ptLoadFx * 10^3, ptLoadFy * 10^3, ptLoadFz * 10^3,
+        Clip[ptLoadPos, {0, length}]]
     }, Spacings -> 1, Alignment -> Center],
-    
-    Module[{mat, E, G, yield, results, rFinalInner, sf, plotBMD},
-      mat = materials[material];
-      E = mat["E"];
-      G = mat["G"];
-      yield = mat["yieldStress"];
-      rFinalInner = If[innerR >= outerR, outerR - 0.005, innerR];
 
-      results = calcCombined[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length, outerR/1000, rFinalInner/1000, E, G];
+    Module[{mat, eVal, gVal, yield, results, sf, plotBMD, ptXpC},
+      mat = materials[material];
+      eVal = mat["E"];
+      gVal = mat["G"];
+      yield = mat["yieldStress"];
+      ptXpC = Clip[ptLoadPos, {0, length}];
+
+      results = calcCombined[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3,
+        length, outerR/1000, eVal, gVal,
+        ptLoadFx * 10^3, ptLoadFy * 10^3, ptLoadFz * 10^3, ptXpC];
       sf = If[results["vm"] > 0, yield / results["vm"], \[Infinity]];
 
-      plotBMD = Plot[bentLoad * 10^3 * (length - x), {x, 0, length}, 
-       PlotStyle -> If[bentLoad > 0, Red, Darker[Green]], 
-       Filling -> Axis, 
-       FillingStyle -> Directive[Opacity[0.4], If[bentLoad > 0, Red, Darker[Green]]], 
-       PlotLabel -> Style["Bending Moment Diagram M(x)", 12, Bold], 
-       AxesLabel -> {"x (m)", "Moment (N\[CenterDot]m)"}, 
-       ImageSize -> 400];
+      plotBMD = Plot[
+        bentLoad * 10^3 * (length - x) +
+          If[x <= ptXpC, ptLoadFy * 10^3 * (ptXpC - x), 0],
+        {x, 0, length},
+        PlotStyle -> Darker[Blue],
+        Filling -> Axis,
+        FillingStyle -> Directive[Opacity[0.4], Darker[Blue]],
+        PlotLabel -> Style["Bending Moment Diagram M(x)", 12, Bold],
+        AxesLabel -> {"x (m)", "Moment (N\[CenterDot]m)"},
+        ImageSize -> 400, Exclusions -> None];
 
       Column[{
         Panel[Grid[{
-          {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", 11, Darker[Blue]], Style[ToString[NumberForm[results["sigmaX"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
-          {Style["Max Shear Stress (\!\(\*SubscriptBox[\(\[Tau]\), \(xy\)]\))", 11, Darker[Blue]], Style[ToString[NumberForm[results["tauXY"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
-          {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", 11, Darker[Blue]], Style[ToString[NumberForm[results["p1"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
-          {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", 11, Darker[Blue]], Style[ToString[NumberForm[results["p2"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
-          {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", 12, Darker[Blue]], Style[ToString[NumberForm[results["vm"] / 1*^6, {6, 2}]] <> " MPa", 12, Bold, If[results["vm"] > yield, Red, Blue]]},
-          {Style["Safety Factor", 11, Darker[Blue]], If[sf == \[Infinity], Style["\[Infinity]", 11, Bold], Style[NumberForm[sf, {5, 2}], 11, Bold, If[sf >= 2, Darker[Green], If[sf >= 1, Orange, Red]]]]}
-        }, Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, Dividers -> Center], 
+          {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", 11, Darker[Blue]],
+           Style[ToString[NumberForm[results["sigmaX"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+          {Style["Torsional Shear (\!\(\*SubscriptBox[\(\[Tau]\), \(torsion\)]\))", 11, Darker[Blue]],
+           Style[ToString[NumberForm[results["tauXY"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+          {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", 11, Darker[Blue]],
+           Style[ToString[NumberForm[results["p1"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+          {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", 11, Darker[Blue]],
+           Style[ToString[NumberForm[results["p2"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+          {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", 12, Darker[Blue]],
+           Style[ToString[NumberForm[results["vm"] / 1*^6, {6, 2}]] <> " MPa", 12, Bold,
+             If[results["vm"] > yield, Red, Blue]]},
+          {Style["Angle of Twist (\[Phi])", 12, Darker[Blue]],
+           Style[ToString[NumberForm[results["phi"], {6, 4}]] <> " rad  (" <>
+             ToString[NumberForm[N[results["phi"] * 180 / \[Pi]], {6, 2}]] <> "\[Degree])", 12, Bold, Blue]},
+          {Style["Safety Factor", 11, Darker[Blue]],
+           If[sf == \[Infinity], Style["\[Infinity]", 11, Bold],
+             Style[NumberForm[sf, {5, 2}], 11, Bold,
+               If[sf >= 2, Darker[Green], If[sf >= 1, Orange, Red]]]]}
+        }, Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, Dividers -> Center],
         Style["\[ThinSpace] Combined Loading Results", 14, Bold], Background -> White],
-        
-        If[results["vm"] > yield, Framed[Style["\[WarningSign] YIELD STRESS EXCEEDED ", 12, Bold, Darker[Red]], Background -> Lighter[Red, 0.9], FrameStyle -> Thick, FrameColor -> Darker[Red]], ""],
 
-        visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length, outerR/1000, rFinalInner/1000, E, G, yield, deformScale, heatmapType],
+        If[results["vm"] > yield,
+          Framed[Style["\[WarningSign] YIELD STRESS EXCEEDED ", 12, Bold, Darker[Red]],
+            Background -> Lighter[Red, 0.9], FrameStyle -> Thick, FrameColor -> Darker[Red]], ""],
+
+        visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, length,
+          outerR/1000, eVal, gVal, yield, deformScale, heatmapType,
+          magnification, ptLoadFx * 10^3, ptLoadFy * 10^3, ptLoadFz * 10^3, ptXpC],
         plotBMD
       }, Spacings -> 1, Alignment -> Center]
     ]
   ],
 
   Style["Visualization Settings", 12, Bold],
-  {{heatmapType, "Von Mises Stress", "Heatmap Display"}, {"Von Mises Stress", "Normal Stress", "Shear Stress"}, ControlType -> RadioButtonBar},
+  {{heatmapType, "Von Mises Stress", "Heatmap Display"},
+    {"Von Mises Stress", "Normal Stress", "Shear Stress"}, ControlType -> RadioButtonBar},
   {{deformScale, 20, "Deformation Scale"}, 1, 100, 1, Appearance -> "Labeled"},
+  {{magnification, 1, "Magnification \[Times]"}, 1, 20, 0.5, Appearance -> "Labeled"},
   Delimiter,
   Style["Material & Geometry", 12, Bold],
   {{material, "Steel", "Material"}, {"Steel", "Aluminum", "Titanium"}, ControlType -> SetterBar},
   {{length, 2.0, "Length L (m)"}, 0.5, 5.0, 0.1, Appearance -> "Labeled"},
   {{outerR, 50, "Outer Radius (mm)"}, 10, 150, 1, Appearance -> "Labeled"},
-  {{innerR, 0, "Inner Radius (mm)"}, 0, 140, 1, Appearance -> "Labeled"},
   Delimiter,
   Style["Applied Loads (at free end)", 12, Bold],
   {{axialLoad, 0, "Axial Load P (kN)"}, -500, 500, 5, Appearance -> "Labeled"},
   {{bentLoad, 0, "Transverse Load V (kN)"}, -100, 100, 1, Appearance -> "Labeled"},
   {{torsionLoad, 0, "Torque T (kN\[CenterDot]m)"}, -50, 50, 0.5, Appearance -> "Labeled"},
+  Delimiter,
+  Style["Point Load", 12, Bold],
+  {{ptLoadPos, 1.0, "Position along bar (m)"}, 0.0, 5.0, 0.05, Appearance -> "Labeled"},
+  {{ptLoadFx, 0, "Point Fx (kN)"}, -200, 200, 5, Appearance -> "Labeled"},
+  {{ptLoadFy, 0, "Point Fy (kN)"}, -100, 100, 1, Appearance -> "Labeled"},
+  {{ptLoadFz, 0, "Point Fz (kN)"}, -100, 100, 1, Appearance -> "Labeled"},
   ControlPlacement -> Left,
-  TrackedSymbols :> {heatmapType, material, length, outerR, innerR, axialLoad, bentLoad, torsionLoad, deformScale},
+  TrackedSymbols :> {heatmapType, material, length, outerR,
+    axialLoad, bentLoad, torsionLoad, deformScale, magnification,
+    ptLoadPos, ptLoadFx, ptLoadFy, ptLoadFz},
   SynchronousUpdating -> False
 ]
 
