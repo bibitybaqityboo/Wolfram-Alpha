@@ -171,20 +171,10 @@ calcCombined[P_, V_, T_, torqPos_, L_, r_, E_, G_,
     compatRHS = phiEnd * Rarm;        (* required by twist geometry *)
     compatError = Abs[compatLHS - compatRHS];
   ,
-    (* No thermal rig: simple two-segment torsion *)
-    T1seg = T;             (* Segment [0, a]: full applied torque *)
-    T2seg = 0;             (* Segment [a, L]: no torque past application point *)
-    (* Wait — for method of sections from the LEFT:
-       Cut at 0<x<a: sum of external torques left = T_clamp
-       Cut at a<x<L: sum = T_clamp + T
-       Equilibrium: at x=L (free end, no bars), internal torque = 0
-       So T_clamp + T = 0 → T_clamp = -T
-       T₁ = T_clamp = -T ... but we want the magnitude/sign.
-       
-       Actually, for a cantilever with torque at position a and free end at L:
+    (* No thermal rig: simple two-segment torsion.
+       For a cantilever with torque at position a and free end at L:
        The reaction at the clamp equals T_applied.
-       Internal torque: T(x) = T_applied for 0<=x<a, T(x) = 0 for a<x<=L.
-    *)
+       Internal torque: T(x) = T_applied for 0<=x<a, T(x) = 0 for a<x<=L. *)
     T1seg = T;    (* Clamp to torque point *)
     T2seg = 0;    (* Torque point to free end — free, so zero *)
     Ttotal = T;   (* For backward compatibility *)
@@ -587,7 +577,7 @@ MechSimCombined[] := Manipulate[
           Exclusions -> None,
           Epilog -> {
             Dashed, GrayLevel[0.5],
-            Line[{{aClip, 0}, {aClip, Max[Abs[results["T1seg"]], Abs[results["T2seg"]]]}}],
+            Line[{{aClip, 0}, {aClip, results["T1seg"]}}],
             Text[Style["a", 10, Italic], {aClip, 0}, {0, 1.5}]
           }];
 
@@ -618,19 +608,19 @@ MechSimCombined[] := Manipulate[
         (* ══ Main Results Panel ══ *)
         Panel[Grid[{
           {Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", 11, Darker[Blue]],
-           Style[ToString[NumberForm[results["sigmaX"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+           Style[ToString[NumberForm[results["sigmaX"] / 10^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
           {Style["Max Torsional Shear (\!\(\*SubscriptBox[\(\[Tau]\), \(max\)]\))", 11, Darker[Blue]],
-           Style[ToString[NumberForm[results["tauXY"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+           Style[ToString[NumberForm[results["tauXY"] / 10^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
           {Style["Max Shear Strain (\!\(\*SubscriptBox[\(\[Gamma]\), \(max\)]\))", 11, Darker[Blue]],
            Style[ToString[NumberForm[N[results["gammaMax"]], {6, 4}]] <> " rad", 11, Bold, Blue]},
           {Style["Max Shear Location", 11, Darker[Blue]],
            Style[results["tauMaxSeg"], 11, Bold, Darker[Orange]]},
           {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", 11, Darker[Blue]],
-           Style[ToString[NumberForm[results["p1"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+           Style[ToString[NumberForm[results["p1"] / 10^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
           {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", 11, Darker[Blue]],
-           Style[ToString[NumberForm[results["p2"] / 1*^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
+           Style[ToString[NumberForm[results["p2"] / 10^6, {6, 2}]] <> " MPa", 11, Bold, Blue]},
           {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", 12, Darker[Blue]],
-           Style[ToString[NumberForm[results["vm"] / 1*^6, {6, 2}]] <> " MPa", 12, Bold,
+           Style[ToString[NumberForm[results["vm"] / 10^6, {6, 2}]] <> " MPa", 12, Bold,
              If[results["vm"] > yield, Red, Blue]]},
           {Style["Angle of Twist (\[Phi] at end)", 12, Darker[Blue]],
            Style[ToString[NumberForm[results["phi"], {6, 4}]] <> " rad  (" <>
@@ -652,43 +642,43 @@ MechSimCombined[] := Manipulate[
         (* ══ Per-Bar Results (only when thermal rig is active) ══ *)
         If[thermEnable,
           Panel[Grid[{
-            {SpanFromLeft, Style["Axial Bar Results", 12, Bold, Darker[Blue]]},
-            {"", Style["Bar 1 (Right)", 11, Bold], Style["Bar 2 (Left)", 11, Bold]},
-            {Style["Axial Force (N)", 11], 
-             Style[ToString[NumberForm[N[results["Frod1"]], {6, 2}]] <> " N", 11, Bold, If[results["Frod1"]>0, Blue, Red]],
-             Style[ToString[NumberForm[N[results["Frod2"]], {6, 2}]] <> " N", 11, Bold, If[results["Frod2"]>0, Blue, Red]]},
-            {Style["\[CapitalDelta]L (mm)", 11],
-             Style[ToString[NumberForm[N[results["rod1DeltaL"] * 1000], {6, 4}]] <> " mm", 11, Bold],
-             Style[ToString[NumberForm[N[results["rod2DeltaL"] * 1000], {6, 4}]] <> " mm", 11, Bold]},
-            {Style["Stress (MPa)", 11],
-             Style[ToString[NumberForm[N[results["rod1Stress"] / 1*^6], {6, 2}]] <> " MPa", 11, Bold],
-             Style[ToString[NumberForm[N[results["rod2Stress"] / 1*^6], {6, 2}]] <> " MPa", 11, Bold]},
-            {Style["Strain", 11],
-             Style[ToString[NumberForm[N[results["rod1Strain"]], {6, 6}]], 11, Bold],
-             Style[ToString[NumberForm[N[results["rod2Strain"]], {6, 6}]], 11, Bold]}
+            {SpanFromLeft, Style["Axial Bar Results", 12, Bold, Black]},
+            {"", Style["Bar 1 (Right)", 11, Bold, Black], Style["Bar 2 (Left)", 11, Bold, Black]},
+            {Style["Axial Force (N)", 11, Black], 
+             Style[ToString[NumberForm[N[results["Frod1"]], {6, 2}]] <> " N", 11, Bold, Black],
+             Style[ToString[NumberForm[N[results["Frod2"]], {6, 2}]] <> " N", 11, Bold, Black]},
+            {Style["\[CapitalDelta]L (mm)", 11, Black],
+             Style[ToString[NumberForm[N[results["rod1DeltaL"] * 1000], {6, 4}]] <> " mm", 11, Bold, Black],
+             Style[ToString[NumberForm[N[results["rod2DeltaL"] * 1000], {6, 4}]] <> " mm", 11, Bold, Black]},
+            {Style["Stress (MPa)", 11, Black],
+             Style[ToString[NumberForm[N[results["rod1Stress"] / 10^6], {6, 2}]] <> " MPa", 11, Bold, Black],
+             Style[ToString[NumberForm[N[results["rod2Stress"] / 10^6], {6, 2}]] <> " MPa", 11, Bold, Black]},
+            {Style["Strain", 11, Black],
+             Style[ToString[NumberForm[N[results["rod1Strain"]], {6, 6}]], 11, Bold, Black],
+             Style[ToString[NumberForm[N[results["rod2Strain"]], {6, 6}]], 11, Bold, Black]}
           }, Alignment -> {{Left, Center, Center}, Center}, Spacings -> {2, 0.8}, Dividers -> Center],
-          Style["\[ThinSpace] Thermal Rig Bar Data", 14, Bold], Background -> White],
+          Style["\[ThinSpace] Thermal Rig Bar Data", 14, Bold, Black], Background -> White],
           ""
         ],
 
         (* ══ Compatibility Condition (only when thermal rig is active) ══ *)
         If[thermEnable,
           Panel[Grid[{
-            {Style["Compatibility Condition Verification", 12, Bold, Darker[Blue]], SpanFromLeft},
-            {Style["Bar 1 total deformation (\[Delta]\[Sub1])", 11], 
-             Style[ToString[NumberForm[N[results["compatLHS"] * 1000], {8, 6}]] <> " mm", 11, Bold]},
-            {Style["Required by twist (\[Phi]\[CenterDot]R\[Sub]arm)", 11],
-             Style[ToString[NumberForm[N[results["compatRHS"] * 1000], {8, 6}]] <> " mm", 11, Bold]},
-            {Style["Compatibility Error", 11],
+            {Style["Compatibility Condition Verification", 12, Bold, Black], SpanFromLeft},
+            {Style["Bar 1 total deformation (\[Delta]\[Sub1])", 11, Black], 
+             Style[ToString[NumberForm[N[results["compatLHS"] * 1000], {8, 6}]] <> " mm", 11, Bold, Black]},
+            {Style["Required by twist (\[Phi]\[CenterDot]R\[Sub]arm)", 11, Black],
+             Style[ToString[NumberForm[N[results["compatRHS"] * 1000], {8, 6}]] <> " mm", 11, Bold, Black]},
+            {Style["Compatibility Error", 11, Black],
              Style[ToString[NumberForm[N[results["compatError"] * 1000], {8, 6}]] <> " mm", 11, Bold,
                If[results["compatError"] < 1*^-10, Darker[Green], Red]]},
-            {Style["Status", 11, Bold],
+            {Style["Status", 11, Bold, Black],
              Style[If[results["compatError"] < 1*^-10, 
                "\[Checkmark] SATISFIED (error \[TildeTilde] 0)", 
                "\[WarningSign] NOT SATISFIED"], 12, Bold,
                If[results["compatError"] < 1*^-10, Darker[Green], Red]]}
           }, Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, Dividers -> Center],
-          Style["\[ThinSpace] Compatibility Check", 14, Bold], Background -> White],
+          Style["\[ThinSpace] Compatibility Check", 14, Bold, Black], Background -> White],
           ""
         ],
 
