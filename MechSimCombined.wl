@@ -23,10 +23,14 @@
    Inputs: None (constant data)
    Outputs: Association "materials" keyed by material name string
    ══════════════════════════════════════════════════════════════════════════ *)
+(* Representative alloys chosen from textbook Table (Avg. Mechanical Properties, SI):
+     Steel:     Structural A-36      (E=200 GPa, G=75 GPa, σ_y=250 MPa, α=12×10⁻⁶/°C)
+     Aluminum:  6061-T6 Wrought      (E=68.9 GPa, G=26 GPa, σ_y=255 MPa, α=24×10⁻⁶/°C)
+     Magnesium: Am 1004-T61          (E=44.7 GPa, G=18 GPa, σ_y=152 MPa, α=26×10⁻⁶/°C)  *)
 materials = <|
-  "Steel"     -> <|"E" -> 200*^9, "G" -> 79*^9, "yieldStress" -> 250*^6, "alpha" -> 12*^-6, "color" -> RGBColor[0.53, 0.6, 0.67]|>,
-  "Aluminum"  -> <|"E" -> 69*^9,  "G" -> 26*^9, "yieldStress" -> 270*^6, "alpha" -> 23*^-6, "color" -> RGBColor[0.69, 0.72, 0.75]|>,
-  "Magnesium" -> <|"E" -> 45*^9,  "G" -> 17*^9, "yieldStress" -> 200*^6, "alpha" -> 26*^-6, "color" -> RGBColor[0.75, 0.75, 0.72]|>
+  "Steel (A-36)"      -> <|"E" -> 200*^9,  "G" -> 75*^9,   "yieldStress" -> 250*^6, "alpha" -> 12*^-6, "color" -> RGBColor[0.53, 0.6, 0.67]|>,
+  "Aluminum (6061-T6)" -> <|"E" -> 68.9*^9, "G" -> 26*^9,   "yieldStress" -> 255*^6, "alpha" -> 24*^-6, "color" -> RGBColor[0.69, 0.72, 0.75]|>,
+  "Magnesium (Am1004)" -> <|"E" -> 44.7*^9, "G" -> 18*^9,   "yieldStress" -> 152*^6, "alpha" -> 26*^-6, "color" -> RGBColor[0.75, 0.75, 0.72]|>
 |>;
 
 (* ══════════════════════════════════════════════════════════════════════════
@@ -684,16 +688,16 @@ MechSimCombined[] := Manipulate[
 
         (* ══ Torsion Segment Info ══ *)
         Panel[Grid[{
-          {Style["Torsion Segments", 12, Bold, Darker[Blue]], SpanFromLeft},
-          {Style["Torque position a", 11], Style[ToString[NumberForm[N[aClip], {4, 2}]] <> " m from clamp", 11, Bold]},
-          {Style["Segment 1: [0, a]  T\[Sub1]", 11], 
-           Style[ToString[NumberForm[N[results["T1seg"]/1000], {6, 2}]] <> " kN\[CenterDot]m", 11, Bold]},
-          {Style["Segment 2: [a, L]  T\[Sub2]", 11],
-           Style[ToString[NumberForm[N[results["T2seg"]/1000], {6, 2}]] <> " kN\[CenterDot]m", 11, Bold]},
-          {Style["\[Tau]\[Sub]max occurs in", 11, Bold],
+          {Style["Torsion Segments", 12, Bold, Black], SpanFromLeft},
+          {Style["Torque position a", 11, Black], Style[ToString[NumberForm[N[aClip], {4, 2}]] <> " m from clamp", 11, Bold, Black]},
+          {Style["Segment 1: [0, a]  T\[Sub1]", 11, Black], 
+           Style[ToString[NumberForm[N[results["T1seg"]/1000], {6, 2}]] <> " kN\[CenterDot]m", 11, Bold, Black]},
+          {Style["Segment 2: [a, L]  T\[Sub2]", 11, Black],
+           Style[ToString[NumberForm[N[results["T2seg"]/1000], {6, 2}]] <> " kN\[CenterDot]m", 11, Bold, Black]},
+          {Style["\[Tau]\[Sub]max occurs in", 11, Bold, Black],
            Style[results["tauMaxSeg"], 11, Bold, Darker[Orange]]}
         }, Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, Dividers -> Center],
-        Style["\[ThinSpace] Torsion Segments", 14, Bold], Background -> White],
+        Style["\[ThinSpace] Torsion Segments", 14, Bold, Black], Background -> White],
 
         (* ══ 3D Visualization ══ *)
         visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, results["T1seg"], results["T2seg"], length,
@@ -723,7 +727,7 @@ MechSimCombined[] := Manipulate[
   Delimiter,
   
   Style["Rod Material & Geometry", 12, Bold],
-  {{material, "Steel", "Rod Material"}, {"Steel", "Aluminum", "Magnesium"}, ControlType -> SetterBar},
+  {{material, "Steel (A-36)", "Rod Material"}, {"Steel (A-36)", "Aluminum (6061-T6)", "Magnesium (Am1004)"}, ControlType -> SetterBar},
   {{length, 2.0, "Rod Length L (m)"}, 0.5, 5.0, 0.1, Appearance -> "Labeled"},
   {{outerR, 50, "Rod Outer Radius (mm)"}, 10, 150, 1, Appearance -> "Labeled"},
   Delimiter,
@@ -739,7 +743,7 @@ MechSimCombined[] := Manipulate[
   {{thermEnable, True, "Enable Thermal Rig"}, {True, False}},
   {{thermDT1, 0, "Bar 1 (Right) \[CapitalDelta]\!\(\*SubscriptBox[\(T\), \(1\)]\) (\[Degree]C)"}, -200, 200, 1, Appearance -> "Labeled"},
   {{thermDT2, 0, "Bar 2 (Left) \[CapitalDelta]\!\(\*SubscriptBox[\(T\), \(2\)]\) (\[Degree]C)"}, -200, 200, 1, Appearance -> "Labeled"},
-  {{thermMat, "Aluminum", "Bar Material"}, {"Steel", "Aluminum", "Magnesium"}, ControlType -> SetterBar},
+  {{thermMat, "Aluminum (6061-T6)", "Bar Material"}, {"Steel (A-36)", "Aluminum (6061-T6)", "Magnesium (Am1004)"}, ControlType -> SetterBar},
   {{thermL, 1.0, "Bar Length l (m)"}, 0.1, 3.0, 0.1, Appearance -> "Labeled"},
   {{thermD, 10, "Bar Diameter d (mm)"}, 2, 50, 1, Appearance -> "Labeled"},
   {{thermA, 0, "Offset a from shaft surface (mm)"}, 0, 200, 5, Appearance -> "Labeled"},
