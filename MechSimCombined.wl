@@ -66,8 +66,7 @@ heatmapColor[t_] := Blend[{Blue, Cyan, Green, Yellow, Red}, Clip[t, {0, 1}]];
      E        \[LongDash] Young's modulus of rod (Pa)
      G        \[LongDash] Shear modulus of rod (Pa)
      thermRig \[LongDash] Boolean: enable thermal rig
-     thermDT1 \[LongDash] Temperature change in rod 1 (\[Degree]C)
-     thermDT2 \[LongDash] Temperature change in rod 2 (\[Degree]C)
+     thermDT  \[LongDash] Symmetric temperature change in rods (\[Degree]C)
      thermL   \[LongDash] Length of axial bars (m)
      thermD   \[LongDash] Diameter of axial bars (m)
      thermE   \[LongDash] Young's modulus of bar material (Pa)
@@ -77,7 +76,7 @@ heatmapColor[t_] := Blend[{Blue, Cyan, Green, Yellow, Red}, Clip[t, {0, 1}]];
    Outputs: Association with all stress/strain/force/displacement results
    \:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550\:2550 *)
 calcCombined[P_, V_, T_, torqPos_, L_, r_, E_, G_,
-  thermRig_:False, thermDT1_:0, thermDT2_:0, thermL_:1.0, thermD_:0.01, 
+  thermRig_:False, thermDT_:0, thermL_:1.0, thermD_:0.01, 
   thermE_:200*^9, thermAlpha_:12*^-6, thermA_:0.0] := Module[
   {A, Ival, J, Mmax, sigAxial, sigBend, sigXmax,
    tauTorsion, tauXYmax, sigAvg, Rval, p1, p2, vm, delL, delY,
@@ -137,35 +136,31 @@ calcCombined[P_, V_, T_, torqPos_, L_, r_, E_, G_,
      the torque is directly resisted by the bars.
   *)
   If[thermRig,
-    Ks = (G * J) / L;
-    Kr = ((\[Pi] / 4 * thermD^2) * thermE) / thermL;
     Rarm = r + thermA;
+    rodArea = \[Pi] / 4 * thermD^2;
     
-    (* Solve for twist angle at free end.
-       The applied torque T at position a contributes to twist proportionally
-       to how much rod length is between the clamp and the torque.
-       The effective torque contribution to twist is T*(L-a)/L when
-       combined with the bar stiffness at the end. *)
-    phiEnd = (T * (L - aClip) / L + Kr * Rarm * thermAlpha * (thermDT1 - thermDT2) * thermL) / (Ks + 2 * Kr * Rarm^2);
+    (* Explicit algebraically derived force equation *)
+    Frod1 = (thermAlpha * thermDT * thermL + (T * aClip * Rarm) / (G * J)) / 
+            (thermL / (thermE * rodArea) + (L * (2 * Rarm)^2) / (2 * G * J));
+            
+    Frod2 = -Frod1;
     
-    (* Reconstruct internal torques from \[CurlyPhi] *)
-    Frod1 = Kr * (phiEnd * Rarm - thermAlpha * thermDT1 * thermL);
-    Frod2 = Kr * (-phiEnd * Rarm - thermAlpha * thermDT2 * thermL);
+    (* Explicit twist angle formula derived from compatibility and equilibrium *)
+    phiEnd = (2 * Frod1 * Rarm * L - T * aClip) / (G * J);
     
     (* Internal torque at free end section (segment 2) *)
     T2seg = (Frod1 - Frod2) * Rarm;
     (* Internal torque at clamp section (segment 1) *)
-    T1seg = T2seg - T;  (* Jump: T\:2081 = T\:2082 - T_applied *)
-    Ttotal = T2seg;  (* Ttotal represents the torque at the bar end for visualization *)
+    T1seg = T2seg - T;
+    Ttotal = T2seg;
     
     (* \[HorizontalLine]\[HorizontalLine] Per-bar detailed results \[HorizontalLine]\[HorizontalLine] *)
-    rodArea = \[Pi] / 4 * thermD^2;
-    rod1DeltaL = Frod1 * thermL / (thermE * rodArea) + thermAlpha * thermDT1 * thermL;
-    rod2DeltaL = Frod2 * thermL / (thermE * rodArea) + thermAlpha * thermDT2 * thermL;
+    rod1DeltaL = Frod1 * thermL / (thermE * rodArea) + thermAlpha * thermDT * thermL;
+    rod2DeltaL = Frod2 * thermL / (thermE * rodArea) + thermAlpha * (-thermDT) * thermL;
     rod1Stress = Frod1 / rodArea;
     rod2Stress = Frod2 / rodArea;
-    rod1Strain = rod1Stress / thermE + thermAlpha * thermDT1;
-    rod2Strain = rod2Stress / thermE + thermAlpha * thermDT2;
+    rod1Strain = rod1Stress / thermE + thermAlpha * thermDT;
+    rod2Strain = rod2Stress / thermE + thermAlpha * (-thermDT);
     
     (* \[HorizontalLine]\[HorizontalLine] Compatibility condition verification \[HorizontalLine]\[HorizontalLine]
        Bar 1 total deformation should equal \[CurlyPhi]\[CenterDot]Rarm
@@ -501,7 +496,7 @@ visualizeShaft[P_, V_, Tapplied_, T1seg_, T2seg_, L_, rOuter_, E_, G_, yield_, s
   ];
 
   Legended[plot3D, BarLegend[{heatmapColor[# / (legendMax / 10^6)] &, {0, legendMax / 10^6}},
-    LegendLabel -> Style[legendLabel, 12, Bold, Black],
+    LegendLabel -> Style[legendLabel, 12, Bold, White],
     LegendMarkerSize -> 300,
     LabelStyle -> {FontSize -> 11}
   ]]
@@ -539,7 +534,7 @@ MechSimCombined[] := Manipulate[
 
     results = calcCombined[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3,
       aClip, length, outerR/1000, eVal, gVal,
-      thermEnable, thermDT1, thermDT2, thermL, thermD/1000, thermEVal, thermAlphaVal, thermA/1000];
+      thermEnable, thermDT, thermL, thermD/1000, thermEVal, thermAlphaVal, thermA/1000];
     sf = If[results["vm"] > 0, yield / results["vm"], \[Infinity]];
 
     ControlActive[
@@ -547,7 +542,7 @@ MechSimCombined[] := Manipulate[
         Style["\[ThinSpace] Computations Paused During Interaction...", 14, Bold, Gray],
         visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, results["T1seg"], results["T2seg"], length,
           outerR/1000, eVal, gVal, yield, deformScale, heatmapType, magnification,
-          aClip, thermEnable, thermDT1, thermDT2, thermL, thermD/1000, thermA/1000, 
+          aClip, thermEnable, thermDT, -thermDT, thermL, thermD/1000, thermA/1000, 
           results["Frod1"], results["Frod2"], cameraView,
           results["rod1DeltaL"], results["rod2DeltaL"]]
       }, Spacings -> 1, Alignment -> Center],
@@ -557,12 +552,17 @@ MechSimCombined[] := Manipulate[
         plotBMD = Plot[
           bentLoad * 10^3 * (length - x),
           {x, 0, length},
-          PlotStyle -> Darker[Blue],
+          PlotStyle -> {Cyan, Thick},
           Filling -> Axis,
-          FillingStyle -> Directive[Opacity[0.4], Darker[Blue]],
-          PlotLabel -> Style["Bending Moment Diagram M(x)", 12, Bold],
-          AxesLabel -> {"x (m)", "Moment (N\[CenterDot]m)"},
-          ImageSize -> 400, Exclusions -> None];
+          FillingStyle -> Directive[Opacity[0.3], Cyan],
+          PlotLabel -> Style["Bending Moment Diagram M(x)", 12, Bold, White],
+          AxesLabel -> {Style["x (m)", White], Style["Moment (N\[CenterDot]m)", White]},
+          PlotRange -> {{0, length}, {-700000, 700000}},
+          ImageSize -> 400, Exclusions -> None,
+          Background -> GrayLevel[0.15],
+          AxesStyle -> White,
+          TicksStyle -> White,
+          LabelStyle -> {White, 10}];
 
         (* \[HorizontalLine]\[HorizontalLine] Torsion Moment Diagram T(x) \[HorizontalLine]\[HorizontalLine]
            Piecewise constant: T1seg from 0 to aClip, T2seg from aClip to L *)
@@ -572,17 +572,22 @@ MechSimCombined[] := Manipulate[
             {results["T2seg"], x > aClip}
           }],
           {x, 0, length},
-          PlotStyle -> {Darker[Red], Thick},
+          PlotStyle -> {Orange, Thick},
           Filling -> Axis,
-          FillingStyle -> Directive[Opacity[0.3], Darker[Red]],
-          PlotLabel -> Style["Torsion Moment Diagram T(x)", 12, Bold],
-          AxesLabel -> {"x (m)", "Torque (N\[CenterDot]m)"},
-          PlotRange -> All, ImageSize -> 400,
+          FillingStyle -> Directive[Opacity[0.3], Orange],
+          PlotLabel -> Style["Torsion Moment Diagram T(x)", 12, Bold, White],
+          AxesLabel -> {Style["x (m)", White], Style["Torque (N\[CenterDot]m)", White]},
+          PlotRange -> {{0, length}, {-60000, 60000}},
+          ImageSize -> 400,
           Exclusions -> None,
+          Background -> GrayLevel[0.15],
+          AxesStyle -> White,
+          TicksStyle -> White,
+          LabelStyle -> {White, 10},
           Epilog -> {
-            Dashed, GrayLevel[0.5],
+            Dashed, GrayLevel[0.7],
             Line[{{aClip, 0}, {aClip, results["T1seg"]}}],
-            Text[Style["a", 10, Italic], {aClip, 0}, {0, 1.5}]
+            Text[Style["a", 10, Italic, White], {aClip, 0}, {0, 1.5}]
           }];
 
         (* \[HorizontalLine]\[HorizontalLine] Angle of Twist Diagram \[Phi](x) \[HorizontalLine]\[HorizontalLine]
@@ -595,17 +600,22 @@ MechSimCombined[] := Manipulate[
              results["T2seg"] * (x - aClip) / (gVal * results["J"]), x > aClip}
           }],
           {x, 0, length},
-          PlotStyle -> {Darker[Magenta], Thick},
+          PlotStyle -> {Lighter[Green], Thick},
           Filling -> Axis,
-          FillingStyle -> Directive[Opacity[0.2], Darker[Magenta]],
-          PlotLabel -> Style["Angle of Twist Diagram \[Phi](x)", 12, Bold],
-          AxesLabel -> {"x (m)", "\[Phi] (rad)"},
-          PlotRange -> All, ImageSize -> 400,
+          FillingStyle -> Directive[Opacity[0.25], Lighter[Green]],
+          PlotLabel -> Style["Angle of Twist Diagram \[Phi](x)", 12, Bold, White],
+          AxesLabel -> {Style["x (m)", White], Style["\[Phi] (rad)", White]},
+          PlotRange -> {{0, length}, {-0.005, 0.005}},
+          ImageSize -> 400,
           Exclusions -> None,
+          Background -> GrayLevel[0.15],
+          AxesStyle -> White,
+          TicksStyle -> White,
+          LabelStyle -> {White, 10},
           Epilog -> {
-            Dashed, GrayLevel[0.5],
+            Dashed, GrayLevel[0.7],
             Line[{{aClip, 0}, {aClip, results["T1seg"] * aClip / (gVal * results["J"])}}],
-            Text[Style["a", 10, Italic], {aClip, 0}, {0, 1.5}]
+            Text[Style["a", 10, Italic, White], {aClip, 0}, {0, 1.5}]
           }];
 
       Column[{
@@ -661,7 +671,7 @@ MechSimCombined[] := Manipulate[
              Style[ToString[NumberForm[N[results["rod1Strain"]], {6, 6}]], 11, Bold, Black],
              Style[ToString[NumberForm[N[results["rod2Strain"]], {6, 6}]], 11, Bold, Black]}
           }, Alignment -> {{Left, Center, Center}, Center}, Spacings -> {2, 0.8}, Dividers -> Center],
-          Style["\[ThinSpace] Thermal Rig Bar Data", 14, Bold, Black], Background -> White],
+          Style["\[ThinSpace] Thermal Rig Bar Data", 14, Bold, White], Background -> White],
           ""
         ],
 
@@ -682,7 +692,7 @@ MechSimCombined[] := Manipulate[
                "\[WarningSign] NOT SATISFIED"], 12, Bold,
                If[results["compatError"] < 1*^-10, Darker[Green], Red]]}
           }, Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, Dividers -> Center],
-          Style["\[ThinSpace] Compatibility Check", 14, Bold, Black], Background -> White],
+          Style["\[ThinSpace] Compatibility Check", 14, Bold, White], Background -> White],
           ""
         ],
 
@@ -697,12 +707,12 @@ MechSimCombined[] := Manipulate[
           {Style["\[Tau]\[Sub]max occurs in", 11, Bold, Black],
            Style[results["tauMaxSeg"], 11, Bold, Darker[Orange]]}
         }, Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, Dividers -> Center],
-        Style["\[ThinSpace] Torsion Segments", 14, Bold, Black], Background -> White],
+        Style["\[ThinSpace] Torsion Segments", 14, Bold, White], Background -> White],
 
         (* \:2550\:2550 3D Visualization \:2550\:2550 *)
         visualizeShaft[axialLoad * 10^3, bentLoad * 10^3, torsionLoad * 10^3, results["T1seg"], results["T2seg"], length,
           outerR/1000, eVal, gVal, yield, deformScale, heatmapType,
-          magnification, aClip, thermEnable, thermDT1, thermDT2, thermL, thermD/1000, thermA/1000, 
+          magnification, aClip, thermEnable, thermDT, -thermDT, thermL, thermD/1000, thermA/1000, 
           results["Frod1"], results["Frod2"], cameraView,
           results["rod1DeltaL"], results["rod2DeltaL"]],
 
@@ -743,8 +753,7 @@ MechSimCombined[] := Manipulate[
   
   Style["Thermal Torsion Rig", 12, Bold],
   {{thermEnable, True, "Enable Thermal Rig"}, {True, False}},
-  {{thermDT1, 0, "Bar 1 (Right) \[CapitalDelta]\!\(\*SubscriptBox[\(T\), \(1\)]\) (\[Degree]C)"}, -200, 200, 1, Appearance -> "Labeled"},
-  {{thermDT2, 0, "Bar 2 (Left) \[CapitalDelta]\!\(\*SubscriptBox[\(T\), \(2\)]\) (\[Degree]C)"}, -200, 200, 1, Appearance -> "Labeled"},
+  {{thermDT, 0, "Symmetric \[CapitalDelta]T (\[Degree]C)"}, -200, 200, 1, Appearance -> "Labeled"},
   {{thermMat, "Aluminum (6061-T6)", "Bar Material"}, {"Steel (A-36)", "Aluminum (6061-T6)", "Magnesium (Am1004)"}, ControlType -> SetterBar},
   {{thermL, 1.0, "Bar Length l (m)"}, 0.1, 3.0, 0.1, Appearance -> "Labeled"},
   {{thermD, 10, "Bar Diameter d (mm)"}, 2, 50, 1, Appearance -> "Labeled"},
@@ -753,206 +762,8 @@ MechSimCombined[] := Manipulate[
   TrackedSymbols :> {heatmapType, cameraView, material, length, outerR,
     axialLoad, bentLoad, torsionLoad, deformScale, magnification,
     torquePos,
-    thermEnable, thermDT1, thermDT2, thermL, thermD, thermA, thermMat},
+    thermEnable, thermDT, thermL, thermD, thermA, thermMat},
   SynchronousUpdating -> False
 ]
 
 MechSimCombined[]
-
-
-(* ::Output:: *)
-(*Manipulate[Module[{mat$, eVal$, gVal$, yield$, alpha$, results$, sf$, *)
-(*    plotBMD$, plotTMD$, plotTwist$, thermMatProps$, thermEVal$, *)
-(*    thermAlphaVal$, aClip$}, mat$ = materials[material]; eVal$ = mat$["E"]; *)
-(*    gVal$ = mat$["G"]; yield$ = mat$["yieldStress"]; alpha$ = mat$["alpha"]; *)
-(*    aClip$ = Clip[torquePos, {0, length}]; thermMatProps$ = *)
-(*     materials[thermMat]; thermEVal$ = thermMatProps$["E"]; *)
-(*    thermAlphaVal$ = thermMatProps$["alpha"]; *)
-(*    results$ = calcCombined[axialLoad*10^3, bentLoad*10^3, torsionLoad*10^3, *)
-(*      aClip$, length, outerR/1000, eVal$, gVal$, thermEnable, thermDT1, *)
-(*      thermDT2, thermL, thermD/1000, thermEVal$, thermAlphaVal$, *)
-(*      thermA/1000]; sf$ = If[results$["vm"] > 0, yield$/results$["vm"], *)
-(*      Infinity]; ControlActive[*)
-(*     Column[{Style["\[ThinSpace] Computations Paused During Interaction...", 14, Bold, *)
-(*        Gray], visualizeShaft[axialLoad*10^3, bentLoad*10^3, *)
-(*        torsionLoad*10^3, results$["T1seg"], results$["T2seg"], length, *)
-(*        outerR/1000, eVal$, gVal$, yield$, deformScale, heatmapType, *)
-(*        magnification, aClip$, thermEnable, thermDT1, thermDT2, thermL, *)
-(*        thermD/1000, thermA/1000, results$["Frod1"], results$["Frod2"], *)
-(*        cameraView, results$["rod1DeltaL"], results$["rod2DeltaL"]]}, *)
-(*      Spacings -> 1, Alignment -> Center], *)
-(*     Module[{}, plotBMD$ = Plot[bentLoad*10^3*(length - x), {x, 0, length}, *)
-(*         PlotStyle -> Darker[Blue], Filling -> Axis, FillingStyle -> *)
-(*          Directive[Opacity[0.4], Darker[Blue]], PlotLabel -> *)
-(*          Style["Bending Moment Diagram M(x)", 12, Bold], *)
-(*         AxesLabel -> {"x (m)", "Moment (N\[CenterDot]m)"}, ImageSize -> 400, *)
-(*         Exclusions -> None]; plotTMD$ = *)
-(*        Plot[Piecewise[{{results$["T1seg"], x <= aClip$}, {results$["T2seg"], *)
-(*            x > aClip$}}], {x, 0, length}, PlotStyle -> {Darker[Red], Thick}, *)
-(*         Filling -> Axis, FillingStyle -> Directive[Opacity[0.3], *)
-(*           Darker[Red]], PlotLabel -> Style["Torsion Moment Diagram T(x)", *)
-(*           12, Bold], AxesLabel -> {"x (m)", "Torque (N\[CenterDot]m)"}, *)
-(*         PlotRange -> All, ImageSize -> 400, Exclusions -> None, *)
-(*         Epilog -> {Dashed, GrayLevel[0.5], Line[{{aClip$, 0}, *)
-(*             {aClip$, results$["T1seg"]}}], Text[Style["a", 10, Italic], *)
-(*            {aClip$, 0}, {0, 1.5}]}]; plotTwist$ = *)
-(*        Plot[Piecewise[{{results$["T1seg"]*(x/(gVal$*results$["J"])), *)
-(*            x <= aClip$}, {results$["T1seg"]*(aClip$/(gVal$*results$["J"])) + *)
-(*             results$["T2seg"]*((x - aClip$)/(gVal$*results$["J"])), *)
-(*            x > aClip$}}], {x, 0, length}, PlotStyle -> {Darker[Magenta], *)
-(*           Thick}, Filling -> Axis, FillingStyle -> Directive[Opacity[0.2], *)
-(*           Darker[Magenta]], PlotLabel -> *)
-(*          Style["Angle of Twist Diagram \[Phi](x)", 12, Bold], *)
-(*         AxesLabel -> {"x (m)", "\[Phi] (rad)"}, PlotRange -> All, *)
-(*         ImageSize -> 400, Exclusions -> None, Epilog -> *)
-(*          {Dashed, GrayLevel[0.5], Line[{{aClip$, 0}, {aClip$, *)
-(*              results$["T1seg"]*(aClip$/(gVal$*results$["J"]))}}], *)
-(*           Text[Style["a", 10, Italic], {aClip$, 0}, {0, 1.5}]}]; *)
-(*       Column[*)
-(*        {Panel[Grid[*)
-(*           {{Style["Max Normal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(x\)]\))", *)
-(*              11, Darker[Blue]], Style[StringJoin[ToString[NumberForm[*)
-(*                 results$["sigmaX"]/10^6, {6, 2}]], " MPa"], 11, Bold, *)
-(*              Blue]}, {Style[*)
-(*              "Max Torsional Shear (\!\(\*SubscriptBox[\(\[Tau]\), \(max\)]\))", *)
-(*              11, Darker[Blue]], Style[StringJoin[ToString[NumberForm[*)
-(*                 results$["tauXY"]/10^6, {6, 2}]], " MPa"], 11, Bold, Blue]}, *)
-(*            {Style[*)
-(*              "Max Shear Strain (\!\(\*SubscriptBox[\(\[Gamma]\), \(max\)]\))", 11, *)
-(*              Darker[Blue]], Style[StringJoin[ToString[NumberForm[*)
-(*                 N[results$["gammaMax"]], {6, 4}]], " rad"], 11, Bold, *)
-(*              Blue]}, {Style["Max Shear Location", 11, Darker[Blue]], *)
-(*             Style[results$["tauMaxSeg"], 11, Bold, Darker[Orange]]}, *)
-(*            {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(1\)]\))", *)
-(*              11, Darker[Blue]], Style[StringJoin[ToString[NumberForm[*)
-(*                 results$["p1"]/10^6, {6, 2}]], " MPa"], 11, Bold, Blue]}, *)
-(*            {Style["Principal Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(2\)]\))", *)
-(*              11, Darker[Blue]], Style[StringJoin[ToString[NumberForm[*)
-(*                 results$["p2"]/10^6, {6, 2}]], " MPa"], 11, Bold, Blue]}, *)
-(*            {Style["Von Mises Stress (\!\(\*SubscriptBox[\(\[Sigma]\), \(vm\)]\))", *)
-(*              12, Darker[Blue]], Style[StringJoin[ToString[NumberForm[*)
-(*                 results$["vm"]/10^6, {6, 2}]], " MPa"], 12, Bold, *)
-(*              If[results$["vm"] > yield$, Red, Blue]]}, *)
-(*            {Style["Angle of Twist (\[Phi] at end)", 12, Darker[Blue]], *)
-(*             Style[StringJoin[ToString[NumberForm[results$["phi"], {6, 4}]], *)
-(*               " rad  (", ToString[NumberForm[N[results$["phi"]*(180/Pi)], *)
-(*                 {6, 2}]], "\[Degree])"], 12, Bold, Blue]}, *)
-(*            {Style["Axial Elongation (\[CapitalDelta]L)", 11, Darker[Blue]], *)
-(*             Style[StringJoin[ToString[NumberForm[N[results$["deltaL"]*1000], *)
-(*                 {6, 4}]], " mm"], 11, Bold, Blue]}, *)
-(*            {Style["Safety Factor", 11, Darker[Blue]], If[sf$ == Infinity, *)
-(*              Style["\[Infinity]", 11, Bold], Style[NumberForm[sf$, {5, 2}], 11, *)
-(*               Bold, If[sf$ >= 2, Darker[Green], If[sf$ >= 1, Orange, *)
-(*                 Red]]]]}}, Alignment -> {{Left, Right}, Center}, *)
-(*           Spacings -> {2, 0.8}, Dividers -> Center], *)
-(*          Style["\[ThinSpace] Combined Loading Results", 14, Bold], *)
-(*          Background -> White], If[results$["vm"] > yield$, *)
-(*          Framed[Style["\[WarningSign] YIELD STRESS EXCEEDED ", 12, Bold, Darker[Red]], *)
-(*           Background -> Lighter[Red, 0.9], FrameStyle -> Thick, *)
-(*           FrameColor -> Darker[Red]], ""], If[thermEnable, *)
-(*          Panel[Grid[{{SpanFromLeft, Style["Axial Bar Results", 12, Bold, *)
-(*               Black]}, {"", Style["Bar 1 (Right)", 11, Bold, Black], *)
-(*              Style["Bar 2 (Left)", 11, Bold, Black]}, *)
-(*             {Style["Axial Force (N)", 11, Black], Style[StringJoin[*)
-(*                ToString[NumberForm[N[results$["Frod1"]], {6, 2}]], " N"], *)
-(*               11, Bold, Black], Style[StringJoin[ToString[NumberForm[*)
-(*                  N[results$["Frod2"]], {6, 2}]], " N"], 11, Bold, Black]}, *)
-(*             {Style["\[CapitalDelta]L (mm)", 11, Black], Style[StringJoin[ToString[*)
-(*                 NumberForm[N[results$["rod1DeltaL"]*1000], {6, 4}]], " mm"], *)
-(*               11, Bold, Black], Style[StringJoin[ToString[NumberForm[*)
-(*                  N[results$["rod2DeltaL"]*1000], {6, 4}]], " mm"], 11, Bold, *)
-(*               Black]}, {Style["Stress (MPa)", 11, Black], Style[StringJoin[*)
-(*                ToString[NumberForm[N[results$["rod1Stress"]/10^6], {6, 2}]], *)
-(*                " MPa"], 11, Bold, Black], Style[StringJoin[ToString[*)
-(*                 NumberForm[N[results$["rod2Stress"]/10^6], {6, 2}]], *)
-(*                " MPa"], 11, Bold, Black]}, {Style["Strain", 11, Black], *)
-(*              Style[ToString[NumberForm[N[results$["rod1Strain"]], {6, 6}]], *)
-(*               11, Bold, Black], Style[ToString[NumberForm[N[results$[*)
-(*                   "rod2Strain"]], {6, 6}]], 11, Bold, Black]}}, *)
-(*            Alignment -> {{Left, Center, Center}, Center}, *)
-(*            Spacings -> {2, 0.8}, Dividers -> Center], *)
-(*           Style["\[ThinSpace] Thermal Rig Bar Data", 14, Bold, Black], *)
-(*           Background -> White], ""], If[thermEnable, *)
-(*          Panel[Grid[{{Style["Compatibility Condition Verification", 12, *)
-(*               Bold, Black], SpanFromLeft}, *)
-(*             {Style["Bar 1 total deformation (\[Delta]\\[Sub1])", 11, Black], *)
-(*              Style[StringJoin[ToString[NumberForm[N[results$["compatLHS"]**)
-(*                    1000], {8, 6}]], " mm"], 11, Bold, Black]}, *)
-(*             {Style["Required by twist (\[Phi]\[CenterDot]R\\[Sub]arm)", 11, Black], *)
-(*              Style[StringJoin[ToString[NumberForm[N[results$["compatRHS"]**)
-(*                    1000], {8, 6}]], " mm"], 11, Bold, Black]}, *)
-(*             {Style["Compatibility Error", 11, Black], Style[StringJoin[*)
-(*                ToString[NumberForm[N[results$["compatError"]*1000], *)
-(*                  {8, 6}]], " mm"], 11, Bold, If[results$["compatError"] < *)
-(*                 1/10000000000, Darker[Green], Red]]}, *)
-(*             {Style["Status", 11, Bold, Black], Style[If[*)
-(*                results$["compatError"] < 1/10000000000, *)
-(*                "\[Checkmark] SATISFIED (error \[TildeTilde] 0)", "\[WarningSign] NOT SATISFIED"], 12, *)
-(*               Bold, If[results$["compatError"] < 1/10000000000, *)
-(*                Darker[Green], Red]]}}, Alignment -> {{Left, Right}, Center}, *)
-(*            Spacings -> {2, 0.8}, Dividers -> Center], *)
-(*           Style["\[ThinSpace] Compatibility Check", 14, Bold, Black], *)
-(*           Background -> White], ""], *)
-(*         Panel[Grid[{{Style["Torsion Segments", 12, Bold, Black], *)
-(*             SpanFromLeft}, {Style["Torque position a", 11, Black], *)
-(*             Style[StringJoin[ToString[NumberForm[N[aClip$], {4, 2}]], *)
-(*               " m from clamp"], 11, Bold, Black]}, *)
-(*            {Style["Segment 1: [0, a]  T\\[Sub1]", 11, Black], *)
-(*             Style[StringJoin[ToString[NumberForm[N[results$["T1seg"]/1000], *)
-(*                 {6, 2}]], " kN\[CenterDot]m"], 11, Bold, Black]}, *)
-(*            {Style["Segment 2: [a, L]  T\\[Sub2]", 11, Black], *)
-(*             Style[StringJoin[ToString[NumberForm[N[results$["T2seg"]/1000], *)
-(*                 {6, 2}]], " kN\[CenterDot]m"], 11, Bold, Black]}, *)
-(*            {Style["\[Tau]\\[Sub]max occurs in", 11, Bold, Black], *)
-(*             Style[results$["tauMaxSeg"], 11, Bold, Darker[Orange]]}}, *)
-(*           Alignment -> {{Left, Right}, Center}, Spacings -> {2, 0.8}, *)
-(*           Dividers -> Center], Style["\[ThinSpace] Torsion Segments", 14, Bold, *)
-(*           Black], Background -> White], visualizeShaft[axialLoad*10^3, *)
-(*          bentLoad*10^3, torsionLoad*10^3, results$["T1seg"], *)
-(*          results$["T2seg"], length, outerR/1000, eVal$, gVal$, yield$, *)
-(*          deformScale, heatmapType, magnification, aClip$, thermEnable, *)
-(*          thermDT1, thermDT2, thermL, thermD/1000, thermA/1000, *)
-(*          results$["Frod1"], results$["Frod2"], cameraView, *)
-(*          results$["rod1DeltaL"], results$["rod2DeltaL"]], plotTMD$, *)
-(*         plotTwist$, plotBMD$}, Spacings -> 1, Alignment -> Center]]]], *)
-(*  Style["Visualization Settings", 12, Bold], *)
-(*  {{cameraView, "Perspective", "Camera View"}, {"Perspective", "Front View", *)
-(*    "Side View"}, ControlType -> RadioButtonBar}, *)
-(*  {{heatmapType, "Von Mises Stress", "Heatmap Display"}, *)
-(*   {"Von Mises Stress", "Normal Stress", "Shear Stress"}, *)
-(*   ControlType -> RadioButtonBar}, {{deformScale, 40, "Deformation Scale"}, *)
-(*   1, 100, 1, Appearance -> "Labeled"}, *)
-(*  {{magnification, 1, "Magnification *"}, 1, 20, 0.5, *)
-(*   Appearance -> "Labeled"}, Delimiter, Style["Rod Material & Geometry", 12, *)
-(*   Bold], Row[{Style["Rod Length L: ", 11], Style["7.0 m (Constant)", 11, *)
-(*     Bold, RGBColor[0.33333333333333337, 0.33333333333333337, *)
-(*      0.33333333333333337]]}], Row[{Style["Rod Diameter: ", 11], *)
-(*    Style["0.5 m (Constant)", 11, Bold, RGBColor[0.33333333333333337, *)
-(*      0.33333333333333337, 0.33333333333333337]]}], *)
-(*  {{material, "Aluminum (6061-T6)", "Rod Material"}, *)
-(*   {"Steel (A-36)", "Aluminum (6061-T6)", "Magnesium (Am1004)"}, *)
-(*   ControlType -> SetterBar}, {{length, 7.}, ControlType -> None}, *)
-(*  {{outerR, 250}, ControlType -> None}, Delimiter, *)
-(*  Style["Applied Loads", 12, Bold], {{axialLoad, 0, "Axial Load P (kN)"}, *)
-(*   -500, 500, 5, Appearance -> "Labeled"}, *)
-(*  {{bentLoad, 39, "Transverse Load V (kN)"}, -100, 100, 1, *)
-(*   Appearance -> "Labeled"}, {{torsionLoad, 0, "Applied Torque T (kN\[CenterDot]m)"}, *)
-(*   -50, 50, 0.5, Appearance -> "Labeled"}, *)
-(*  {{torquePos, 3.95, "Torque Position a (m from clamp)"}, 0., 5., 0.05, *)
-(*   Appearance -> "Labeled"}, Delimiter, Style["Thermal Torsion Rig", 12, *)
-(*   Bold], {{thermEnable, True, "Enable Thermal Rig"}, {True, False}}, *)
-(*  {{thermDT1, 0, "Bar 1 (Right) \[CapitalDelta]\!\(\*SubscriptBox[\(T\), \(1\)]\) (\[Degree]C)"}, *)
-(*   -200, 200, 1, Appearance -> "Labeled"}, *)
-(*  {{thermDT2, 0, "Bar 2 (Left) \[CapitalDelta]\!\(\*SubscriptBox[\(T\), \(2\)]\) (\[Degree]C)"}, *)
-(*   -200, 200, 1, Appearance -> "Labeled"}, *)
-(*  {{thermMat, "Aluminum (6061-T6)", "Bar Material"}, *)
-(*   {"Steel (A-36)", "Aluminum (6061-T6)", "Magnesium (Am1004)"}, *)
-(*   ControlType -> SetterBar}, {{thermL, 2.5000000000000004, *)
-(*    "Bar Length l (m)"}, 0.1, 3., 0.1, Appearance -> "Labeled"}, *)
-(*  {{thermD, 23, "Bar Diameter d (mm)"}, 2, 50, 1, Appearance -> "Labeled"}, *)
-(*  {{thermA, 0, "Offset a from shaft surface (mm)"}, 0, 200, 5, *)
-(*   Appearance -> "Labeled"}, ControlPlacement -> Left, *)
-(*  TrackedSymbols :> {heatmapType, cameraView, material, length, outerR, *)
-(*    axialLoad, bentLoad, torsionLoad, deformScale, magnification, torquePos, *)
-(*    thermEnable, thermDT1, thermDT2, thermL, thermD, thermA, thermMat}, *)
-(*  SynchronousUpdating -> False]*)
