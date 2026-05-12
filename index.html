@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MechSim — Mechanics of Materials Simulator</title>
+    <meta name="description" content="Interactive 3D Mechanics of Materials Simulator with real-time physics" />
+    <link rel="stylesheet" href="style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet" />
+</head>
+
+<body>
+    <div id="canvas-container"></div>
+
+    <!-- ═══ Top Nav ═══ -->
+    <nav id="top-nav">
+        <div class="nav-brand">⬡ MechSim</div>
+        <div class="nav-tabs">
+            <button class="tab-btn active" data-mode="combined">
+                <span class="tab-icon">⚙️</span>Combined Loading
+            </button>
+        </div>
+    </nav>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- COMBINED LOADING PANEL                                      -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div id="combined-controls" class="panel">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <h2 class="panel-title">Combined Loading</h2>
+                <p class="subtitle">Axial + Bending + Torsion</p>
+                <details class="dropdown-info" style="margin-top: 4px;">
+                    <summary>Mode Description</summary>
+                    <p>Simulates a structural member under combined axial, transverse, and torsional loads to calculate
+                        and visualize principal stresses and failure points.</p>
+                </details>
+            </div>
+            <button class="help-btn" data-help="combined" title="Help & Theory">?</button>
+        </div>
+        <div class="panel-body">
+            <div class="control-group">
+                <label for="combined-material">Material</label>
+                <div class="select-wrapper">
+                    <select id="combined-material">
+                        <option value="steel">Steel (σ_y = 250 MPa)</option>
+                        <option value="aluminum">Aluminum (σ_y = 270 MPa)</option>
+                        <option value="titanium">Titanium (σ_y = 880 MPa)</option>
+                    </select>
+                </div>
+                <details class="dropdown-info">
+                    <summary>Description</summary>
+                    <p>Select the material of the component. Different materials have different yield strengths, which
+                        affects the safety factor calculation.</p>
+                </details>
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Shaft Geometry</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-length">Length (L)</label>
+                    <span id="combined-length-val" class="value-badge">2.0 m</span>
+                </div>
+                <input type="range" id="combined-length" min="0.5" max="5" value="2" step="0.1" />
+                <details class="dropdown-info">
+                    <summary>Description</summary>
+                    <p>Length of the shaft (L). Determines the distance over which bending and torsion act, affecting
+                        deflection and twist.</p>
+                </details>
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-radius">Outer Radius (r)</label>
+                    <span id="combined-radius-val" class="value-badge">50 mm</span>
+                </div>
+                <input type="range" id="combined-radius" min="10" max="150" value="50" step="1" />
+                <details class="dropdown-info">
+                    <summary>Description</summary>
+                    <p>Outer Radius (r). Defines the overall size. Larger radius significantly increases resistance to
+                        bending and torsion.</p>
+                </details>
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-inner-radius">Inner Radius (r_i)</label>
+                    <span id="combined-inner-radius-val" class="value-badge">0 mm</span>
+                </div>
+                <input type="range" id="combined-inner-radius" min="0" max="140" value="0" step="1" />
+                <details class="dropdown-info">
+                    <summary>Description</summary>
+                    <p>Inner Radius (r_i). For hollow shafts. A larger inner radius reduces material and weight but
+                        decreases structural stiffness.</p>
+                </details>
+            </div>
+
+            <hr class="divider" />
+            <p class="section-title">Applied Loads (at free end)</p>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-load-axial">Axial Load (P)</label>
+                    <span id="combined-load-axial-val" class="value-badge">0 kN</span>
+                </div>
+                <input type="range" id="combined-load-axial" min="-500" max="500" value="0" step="5" />
+                <details class="dropdown-info">
+                    <summary>Description</summary>
+                    <p>Axial Load (P). Pulls (tension) or pushes (compression) the shaft, causing uniform normal stress
+                        across the cross-section.</p>
+                </details>
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-load-bending">Transverse Load (V)</label>
+                    <span id="combined-load-bending-val" class="value-badge">0 kN</span>
+                </div>
+                <input type="range" id="combined-load-bending" min="-100" max="100" value="0" step="1" />
+                <details class="dropdown-info">
+                    <summary>Description</summary>
+                    <p>Transverse Load (V). Applied perpendicular to the shaft, causing bending moments that generate
+                        bending normal and shear stresses.</p>
+                </details>
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-load-torsion">Torque (T)</label>
+                    <span id="combined-load-torsion-val" class="value-badge">0 kN·m</span>
+                </div>
+                <input type="range" id="combined-load-torsion" min="-50" max="50" value="0" step="0.5" />
+                <details class="dropdown-info">
+                    <summary>Description</summary>
+                    <p>Torque (T). Twists the shaft around its axis, generating torsional shear stress that is maximum
+                        at the outer surface.</p>
+                </details>
+            </div>
+
+            <hr class="divider" />
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="combined-deform-scale">Deformation Scale</label>
+                    <span id="combined-deform-scale-val" class="value-badge">20x</span>
+                </div>
+                <input type="range" id="combined-deform-scale" min="1" max="100" value="20" step="1" />
+                <details class="dropdown-info">
+                    <summary>Description</summary>
+                    <p>Visual Deformation Scale. Amplifies the visual representation of deformation in the 3D viewer
+                        without changing real physics.</p>
+                </details>
+            </div>
+
+            <button id="combined-reset-btn" class="reset-btn" style="margin-top:12px">↻ Reset All</button>
+            <hr class="divider" />
+
+            <div class="readouts">
+                <div class="readout-card">
+                    <span class="readout-label">Max Normal Stress (σ_x)</span>
+                    <span id="combined-sigma-readout" class="readout-value">—</span>
+                </div>
+                <div class="readout-card">
+                    <span class="readout-label">Max Shear Stress (τ_xy)</span>
+                    <span id="combined-tau-readout" class="readout-value">—</span>
+                </div>
+                <div class="readout-card">
+                    <span class="readout-label">Principal Stress (σ_1)</span>
+                    <span id="combined-p1-readout" class="readout-value">—</span>
+                </div>
+                <div class="readout-card">
+                    <span class="readout-label">Principal Stress (σ_2)</span>
+                    <span id="combined-p2-readout" class="readout-value">—</span>
+                </div>
+                <div class="readout-card"
+                    style="grid-column: span 2; background: rgba(163,113,247,0.1); border-color: rgba(163,113,247,0.3);">
+                    <span class="readout-label" style="color: var(--accent);">Von Mises Stress (σ_vm)</span>
+                    <span id="combined-vm-readout" class="readout-value"
+                        style="color: var(--accent); font-size: 1.25rem;">—</span>
+                </div>
+                <div class="readout-card" style="grid-column: span 2;">
+                    <span class="readout-label">Safety Factor</span>
+                    <span id="combined-safety-readout" class="readout-value">—</span>
+                </div>
+            </div>
+            <div id="combined-yield-warning" class="yield-warning hidden">⚠️ Yield stress exceeded!</div>
+
+            <hr class="divider" />
+            <div class="control-group">
+                <p class="section-title">Bending Moment Diagram</p>
+                <canvas id="bending-moment-canvas" width="280" height="120"
+                    style="width: 100%; height: 120px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(0,0,0,0.08); margin-top: 8px;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 2D Overlay Canvas for Mohr's Circle & Stress-Strain Curve ═══ -->
+    <canvas id="overlay-canvas"></canvas>
+
+    <!-- ═══ Help Modal ═══ -->
+    <div id="help-modal">
+        <div id="help-modal-backdrop"></div>
+        <div id="help-modal-content">
+            <button id="help-modal-close">✕</button>
+            <h2 id="help-modal-title">Help</h2>
+            <p id="help-modal-subtitle"></p>
+            <div id="help-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- ═══ Bottom Status Bar ═══ -->
+    <div id="bottom-bar">
+        <div class="bar-section">
+            <div class="bar-item"><span class="bar-dot"></span><span>MechSim Active</span></div>
+            <div class="bar-item" id="bar-module">Module: Combined Loading</div>
+        </div>
+        <div class="bar-section">
+            <div class="bar-item" id="bar-info">Ready</div>
+            <div class="bar-item"><span class="bar-fps" id="bar-fps">60</span> FPS</div>
+        </div>
+    </div>
+
+    <!-- ═══ Info Badge (legacy) ═══ -->
+    <div id="info-badge">MechSim — Mechanics of Materials Simulator</div>
+
+    <!-- ═══ Scripts ═══ -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+      }
+    }
+  </script>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
