@@ -738,10 +738,10 @@ MechSimCombined[] := Manipulate[
   
   Style["Rod Material & Geometry", 12, Bold],
   Row[{Style["Rod Length L: ", 11], Style["7.0 m (Constant)", 11, Bold, Darker[Gray]]}],
-  Row[{Style["Rod Diameter: ", 11], Style["0.5 m (Constant)", 11, Bold, Darker[Gray]]}],
+  Row[{Style["Rod Diameter: ", 11], Style["0.2 m (Constant)", 11, Bold, Darker[Gray]]}],
   {{material, "Steel (A-36)", "Rod Material"}, {"Steel (A-36)", "Aluminum (6061-T6)", "Magnesium (Am1004)"}, ControlType -> SetterBar},
   {{length, 7.0}, ControlType -> None},
-  {{outerR, 250}, ControlType -> None},
+  {{outerR, 100}, ControlType -> None},
   Delimiter,
   
   Style["Applied Loads", 12, Bold],
